@@ -5,6 +5,8 @@ import { SiteFooter } from "@/components/site/footer";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner"
 import { BLOG } from "@/config/site";
+import Script from "next/script";
+
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -88,7 +90,11 @@ export default function RootLayout({
         <main className="flex-1">{children}</main>
         <SiteFooter />
         <Toaster />
-
+        <Script
+          src="https://analytics.ahrefs.com/analytics.js"
+          data-key="PW4s6faP4mMxKG2LStALTw"
+          strategy="afterInteractive"
+        />
       </body>
     </html>
   );
