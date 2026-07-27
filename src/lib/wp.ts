@@ -190,8 +190,8 @@ function mapWpPostToNovel(post: any): Novel {
   description = decodeHtmlEntities(description);
 
   // Parse chapters from <pre id="series-meta">
-  const chapters = [];
-  const metaMatch = htmlContent.match(/<pre[^>]*id=["']series-meta["'][^>]*>(.*?)<\/pre>/is);
+  const chapters: Chapter[] = [];
+  const metaMatch = htmlContent.match(/<pre[^>]*id=["']series-meta["'][^>]*>([\s\S]*?)<\/pre>/i);
   if (metaMatch && metaMatch[1]) {
     try {
       const metaJson = JSON.parse(decodeHtmlEntities(metaMatch[1]));

@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     template: `%s | ${BLOG.TITLE}`,
   },
   description: BLOG.DESCRIPTION,
-  keywords: BLOG.KEYWORDS,
+  keywords: [...BLOG.KEYWORDS],
   openGraph: {
     title: BLOG.TITLE,
     description: BLOG.DESCRIPTION,
