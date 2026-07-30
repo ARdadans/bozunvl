@@ -1,12 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, Search, Bolt, Menu, X } from "lucide-react";
+import { BookOpen, Search, Bolt, Menu, X, Bookmark } from "lucide-react";
 import { useState, useEffect, useSyncExternalStore, useCallback } from "react";
-import { usePathname } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { BLOG } from "@/config/site";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -14,12 +13,20 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger,
-} from "@/components/ui/drawer";
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+  SheetClose,
+} from "@/components/ui/sheet";
+import {
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { idbGet } from "@/lib/wp";
 
 
 function useMediaQuery(query: string) {
@@ -41,88 +48,7 @@ function useMediaQuery(query: string) {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
-function SearchDialogContent({ onClose }: { onClose?: () => void }) {
-  const [query, setQuery] = useState("");
-  const results: any[] = [];
 
-  return (
-    <DialogContent showCloseButton={false} className="sm:max-w-lg p-0 border-none bg-transparent shadow-none">
-      <div className="w-full rounded-lg border bg-background p-6 shadow-lg">
-        <Input
-          autoFocus
-          placeholder="Search any..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="h-11 text-base md:text-lg focus-visible:ring-0 focus-visible:outline-none focus-visible:border-input"
-        />
-        {results.length > 0 && (
-          <div className="mt-2 max-h-64 overflow-y-auto">
-            {results.map((novel) => (
-              <Link
-                key={novel.id}
-                href={`/series/${novel.id}`}
-                onClick={onClose}
-                className="block rounded-lg p-3 transition-colors hover:bg-muted"
-              >
-                <p className="text-sm font-medium md:text-base">{novel.title}</p>
-                <p className="text-xs text-muted-foreground md:text-sm">{novel.author}</p>
-              </Link>
-            ))}
-          </div>
-        )}
-        {query && results.length === 0 && (
-          <p className="py-6 text-center text-sm text-muted-foreground md:text-base">
-            No novels found.
-          </p>
-        )}
-      </div>
-    </DialogContent>
-  );
-}
-
-function SearchDrawerContent({ onClose }: { onClose?: () => void }) {
-  const [query, setQuery] = useState("");
-  const results: any[] = [];
-
-  return (
-    <DrawerContent className="mx-auto mt-4 max-h-[70vh] rounded-t-xl">
-      <DrawerHeader>
-        <DrawerTitle className="font-heading text-base font-medium">
-          Search...
-        </DrawerTitle>
-      </DrawerHeader>
-      <div className="px-4 mb-30">
-        <Input
-          autoFocus
-          placeholder="Search anytest..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="h-11 text-base focus-visible:ring-0 focus-visible:outline-none focus-visible:border-input"
-        />
-        {results.length > 0 && (
-          <div className="mt-2 max-h-64 overflow-y-auto">
-            {results.map((novel) => (
-              <Link
-                key={novel.id}
-                href={`/series/${novel.id}`}
-                onClick={onClose}
-                className="block rounded-lg p-3 transition-colors hover:bg-muted"
-              >
-                <p className="text-sm font-medium">{novel.title}</p>
-                <p className="text-xs text-muted-foreground">{novel.author}</p>
-              </Link>
-            ))}
-          </div>
-        )}
-        {query && results.length === 0 && (
-          <p className="py-6 text-center text-sm text-muted-foreground">
-            No novels found.
-          </p>
-        )}
-      </div>
-    </DrawerContent>
-  );
-}
 
 // Buttons are inlined in SiteHeader to coordinate search triggers responsive state.
 
@@ -141,39 +67,11 @@ function BoltDialog() {
             <X className="h-4 w-4" />
             <span className="sr-only">Close</span>
           </DialogClose>
-          <div className="space-y-4">
-            <div>
-              <h3 className="font-heading text-base font-medium">Quick Actions</h3>
-              <p className="text-sm text-muted-foreground">
-                Quickly access your favorite features.
-              </p>
-            </div>
-            <div className="grid gap-2">
-              <Link
-                href="/"
-                className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3 transition-colors hover:bg-muted"
-              >
-                <Bolt className="h-4 w-4 text-primary" />
-                <div>
-                  <p className="text-sm font-medium">Featured Novels</p>
-                  <p className="text-xs text-muted-foreground">
-                    Explore trending stories
-                  </p>
-                </div>
-              </Link>
-              <Link
-                href="/"
-                className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3 transition-colors hover:bg-muted"
-              >
-                <Search className="h-4 w-4 text-primary" />
-                <div>
-                  <p className="text-sm font-medium">Trending</p>
-                  <p className="text-xs text-muted-foreground">
-                    What others are reading
-                  </p>
-                </div>
-              </Link>
-            </div>
+          <div className="flex flex-col items-center justify-center py-8 text-center space-y-2">
+            <h3 className="font-heading text-lg font-semibold">Coming Soon Feature</h3>
+            <p className="text-sm text-muted-foreground">
+              Fitur ini sedang dalam pengembangan dan akan segera hadir.
+            </p>
           </div>
         </div>
       </DialogContent>
@@ -183,44 +81,58 @@ function BoltDialog() {
 
 function MenuDialog() {
   return (
-    <Dialog>
-      <DialogTrigger asChild>
+    <Sheet>
+      <SheetTrigger asChild>
         <button title="Menu" className="flex h-9 w-9 items-center justify-center rounded-lg transition-colors hover:bg-muted">
           <Menu className="h-5 w-5" />
           <span className="sr-only">Menu</span>
         </button>
-      </DialogTrigger>
-      <DialogContent showCloseButton={false} className="p-0 border-none bg-transparent shadow-none">
-        <div className="relative w-full rounded-lg border bg-background p-6 shadow-lg">
-          <DialogClose className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 disabled:pointer-events-none hover:bg-accent hover:text-accent-foreground p-1">
-            <X className="h-4 w-4" />
-            <span className="sr-only">Close</span>
-          </DialogClose>
-          <div className="space-y-4">
-            <div>
-              <h3 className="font-heading text-base font-medium">Menu</h3>
-              <p className="text-sm text-muted-foreground">
-                Navigate through the site.
-              </p>
-            </div>
-            <nav className="flex flex-col gap-1">
-              <Link
-                href="/"
-                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-muted"
-              >
-                Home
-              </Link>
-            </nav>
-          </div>
+      </SheetTrigger>
+      <SheetContent>
+        <div className="flex flex-col py-2 mt-4 space-y-1">
+          <h3 className="font-heading text-base font-semibold mb-2 px-2">Menu</h3>
+          <SheetClose asChild>
+            <Link href="/bookmarks" className="flex items-center gap-3 px-4 py-3 hover:bg-accent hover:text-accent-foreground rounded-md transition-colors w-full text-left">
+              <Bookmark className="h-5 w-5" />
+              <span className="text-base">Bookmarks</span>
+            </Link>
+          </SheetClose>
         </div>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }
 
 export function SiteHeader({ className }: { className?: string }) {
   const [searchOpen, setSearchOpen] = useState(false);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [inputValue, setInputValue] = useState("");
   const isDesktop = useMediaQuery("(min-width: 768px)");
+  const router = useRouter();
+
+  useEffect(() => {
+    if (searchOpen) {
+      idbGet("recent_searches").then((res) => {
+        if (res && Array.isArray(res)) {
+          setRecentSearches(res);
+        }
+      });
+      setInputValue("");
+    }
+  }, [searchOpen]);
+
+  const handleSearch = (query: string) => {
+    if (!query.trim()) return;
+    setSearchOpen(false);
+    router.push(`/search?q=${encodeURIComponent(query.trim())}`);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && inputValue.trim()) {
+      e.preventDefault();
+      handleSearch(inputValue);
+    }
+  };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -289,15 +201,44 @@ export function SiteHeader({ className }: { className?: string }) {
         </div>
       </div>
 
-      {isDesktop ? (
-        <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
-          <SearchDialogContent onClose={() => setSearchOpen(false)} />
-        </Dialog>
-      ) : (
-        <Drawer open={searchOpen} onOpenChange={setSearchOpen}>
-          <SearchDrawerContent onClose={() => setSearchOpen(false)} />
-        </Drawer>
-      )}
+      <CommandDialog open={searchOpen} onOpenChange={setSearchOpen}>
+        <CommandInput
+          placeholder="Search series by title..."
+          value={inputValue}
+          onValueChange={setInputValue}
+          onKeyDown={handleKeyDown}
+        />
+        <CommandList>
+          <CommandEmpty>
+            {inputValue ? (
+              <div
+                className="cursor-pointer hover:text-primary transition-colors flex items-center justify-center gap-2"
+                onClick={() => handleSearch(inputValue)}
+              >
+                <Search className="h-4 w-4" />
+                <span>Tekan <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">Enter</kbd> untuk mencari &quot;{inputValue}&quot;</span>
+              </div>
+            ) : (
+              "Belum ada pencarian."
+            )}
+          </CommandEmpty>
+          {recentSearches.length > 0 && (
+            <CommandGroup heading="Terakhir dicari">
+              {recentSearches.map((term, i) => (
+                <CommandItem className={cn(
+                  "data-[selected=true]:bg-transparent",
+                  "data-[selected=true]:text-white", "hover:!bg-accent",
+                  "last:mb-2",
+                  className
+                )} key={i} onSelect={() => handleSearch(term)}>
+                  <Search className="mr-2 h-4 w-4 text-muted-foreground" />
+                  {term}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
+        </CommandList>
+      </CommandDialog>
     </header>
   );
 }

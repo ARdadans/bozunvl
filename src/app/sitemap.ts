@@ -1,4 +1,4 @@
-import { MetadataRoute } from 'next';
+﻿import { MetadataRoute } from 'next';
 import { SITE } from '@/config/site';
 
 type WPPost = {
@@ -23,7 +23,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     try {
       const res = await fetch(
         `https://public-api.wordpress.com/rest/v1.2/sites/${SITE.NAME}/posts?category=type-series&fields=found,ID,modified,title&order_by=modified&number=100&page=${page}`,
-        { cache: 'force-cache' } // Supaya di-cache dan bisa di-revalidate lewat webhook
+        { cache: 'force-cache' }
       );
 
       if (!res.ok) {
@@ -59,10 +59,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '');
-    const novelId = `${post.ID}-${kebabTitle}`;
+    const seriesId = `${post.ID}-${kebabTitle}`;
 
     return {
-      url: `${baseUrl}/series/${novelId}`,
+      url: `${baseUrl}/series/${seriesId}`,
       lastModified: new Date(post.modified),
     };
   });

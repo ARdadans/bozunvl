@@ -25,9 +25,17 @@ import {
   ShareIcon
 } from "@/components/icons";
 import { toast } from "sonner";
-import { Novel } from "@/lib/wp";
+import { Series } from "@/lib/wp";
+import { toggleBookmark, isBookmarked as checkBookmark, getSeriesProgress, saveSeriesProgress, resetSeriesProgress } from "@/lib/indexeddb";
 
-export default function SeriesClient({ series }: { series: Novel }) {
+const formatChapterTitle = (seriesTitle: string, chapterTitle: string) => {
+  if (!chapterTitle || !seriesTitle) return chapterTitle;
+  const escapedTitle = seriesTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`^${escapedTitle}\\s*(?:Ch\\.?|Chapter)?\\s*\\d*(?:\\.\\d+)?\\s*[:-]?\\s*`, 'i');
+  return chapterTitle.replace(regex, '').trim();
+};
+
+export default function SeriesClient({ series }: { series: Series }) {
   const [isAltsExpanded, setIsAltsExpanded] = useState(false);
   const [showAllGenres, setShowAllGenres] = useState(false);
   const [showAllTags, setShowAllTags] = useState(false);
@@ -44,35 +52,49 @@ export default function SeriesClient({ series }: { series: Novel }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(25);
 
+  const [lastReadNumber, setLastReadNumber] = useState<number | null>(null);
+
   useEffect(() => {
     setCurrentPage(1);
   }, [chapterSearch, sortOrder]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const timer = setTimeout(() => {
+      const timer = setTimeout(async () => {
         setShareUrl(window.location.href);
-        const bookmarks = JSON.parse(localStorage.getItem("bookmarks") || "[]");
         if (series) {
-          setIsBookmarked(bookmarks.includes(series.id));
+          const bookmarked = await checkBookmark(series.id);
+          setIsBookmarked(bookmarked);
+
+          const progress = await getSeriesProgress(series.id);
+          setLastReadNumber(progress ? progress.number : null);
         }
       }, 0);
       return () => clearTimeout(timer);
     }
   }, [series]);
 
-  const handleBookmarkToggle = () => {
+  const handleBookmarkToggle = async () => {
     if (!series) return;
-    const bookmarks = JSON.parse(localStorage.getItem("bookmarks") || "[]");
-    let newBookmarks;
-    if (bookmarks.includes(series.id)) {
-      newBookmarks = bookmarks.filter((id: string) => id !== series.id);
-      setIsBookmarked(false);
-    } else {
-      newBookmarks = [...bookmarks, series.id];
-      setIsBookmarked(true);
+
+    try {
+      const isNowBookmarked = await toggleBookmark({
+        id: series.id,
+        title: series.title,
+        cover: series.cover,
+        url: window.location.href,
+      });
+      setIsBookmarked(isNowBookmarked);
+
+      if (isNowBookmarked) {
+        toast.success("Added to bookmarks");
+      } else {
+        toast.success("Removed from bookmarks");
+      }
+    } catch (error) {
+      toast.error("Failed to update bookmarks");
+      console.error(error);
     }
-    localStorage.setItem("bookmarks", JSON.stringify(newBookmarks));
   };
 
   const handleCopyLink = () => {
@@ -81,6 +103,23 @@ export default function SeriesClient({ series }: { series: Novel }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
+  };
+
+  const handleChapterClick = (chapter: any) => {
+    if (lastReadNumber === null || chapter.number > lastReadNumber) {
+      setLastReadNumber(chapter.number);
+      saveSeriesProgress({
+        seriesId: series.id,
+        chapterId: chapter.id,
+        number: chapter.number
+      });
+    }
+  };
+
+  const handleResetProgress = async () => {
+    setLastReadNumber(null);
+    await resetSeriesProgress(series.id);
+    toast.success("Reading progress reset");
   };
 
   const handleNativeShare = () => {
@@ -119,6 +158,13 @@ export default function SeriesClient({ series }: { series: Novel }) {
     const startIndex = (currentPage - 1) * rowsPerPage;
     return sortedAndFilteredChapters.slice(startIndex, startIndex + rowsPerPage);
   }, [sortedAndFilteredChapters, currentPage, rowsPerPage]);
+
+  const firstChapter = useMemo(() => {
+    if (!series?.chapters?.length) return null;
+    const ch1 = series.chapters.find((c) => String(c.number) === "1");
+    if (ch1) return ch1;
+    return [...series.chapters].sort((a, b) => a.number - b.number)[0];
+  }, [series]);
 
   const titleAlts = series.titleAlts || [];
   const artist = series.artist;
@@ -193,7 +239,7 @@ export default function SeriesClient({ series }: { series: Novel }) {
                   <span className="font-semibold">Author:</span>
                   <span className="font-medium flex items-center gap-1.5 flex-wrap">
                     <Link
-                      href={`/search?q=label%3A%22author%3A${encodeURIComponent(series.author.toLowerCase())}%22%2Blabel%3A%22type%3Aseries%22`}
+                      href={`/search?author=author-${encodeURIComponent(series.author.toLowerCase().replace(/%20/g, "-").replace(/[\s_]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, ""))}`}
                       className="hover:text-[var(--color-primary)] transition-colors"
                     >
                       {series.author}
@@ -205,7 +251,7 @@ export default function SeriesClient({ series }: { series: Novel }) {
                     <span className="font-semibold">Art:</span>
                     <span className="font-medium flex items-center gap-1.5 flex-wrap">
                       <Link
-                        href={`/search?q=label%3A%22artist%3A${encodeURIComponent(artist.toLowerCase())}%22%2Blabel%3A%22type%3Aseries%22`}
+                        href={`/search?artist=artist-${encodeURIComponent(artist.toLowerCase().replace(/%20/g, "-").replace(/[\s_]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, ""))}`}
                         className="hover:text-[var(--color-primary)] transition-colors"
                       >
                         {artist}
@@ -218,14 +264,14 @@ export default function SeriesClient({ series }: { series: Novel }) {
               <div className="flex flex-wrap justify-center md:justify-start gap-2 items-center text-xs">
                 {media && (
                   <Link
-                    href={`/search?q=label%3A%22media%3A${encodeURIComponent(media.toLowerCase())}%22%2Blabel%3A%22type%3Aseries%22`}
+                    href={`/search?media=media-${encodeURIComponent(media.toLowerCase().replace(/%20/g, "-").replace(/[\s_]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, ""))}`}
                     className="bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-muted-foreground)] px-2.5 py-1 rounded font-bold uppercase tracking-wider text-[10px]"
                   >
                     {media}
                   </Link>
                 )}
                 <Link
-                  href={`/search?q=label%3A%22status%3A${encodeURIComponent(series.status.toLowerCase())}%22%2Blabel%3A%22type%3Aseries%22`}
+                  href={`/search?status=status-${encodeURIComponent(series.status.toLowerCase().replace(/%20/g, "-").replace(/[\s_]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, ""))}`}
                   className={cn(
                     "px-2.5 py-1 rounded font-bold uppercase tracking-wider text-[10px] border transition-colors",
                     series.status === "Ongoing"
@@ -237,7 +283,7 @@ export default function SeriesClient({ series }: { series: Novel }) {
                 </Link>
                 {year && (
                   <Link
-                    href={`/search?q=label%3A%22year%3A${encodeURIComponent(year.toLowerCase())}%22%2Blabel%3A%22type%3Aseries%22`}
+                    href={`/search?year=year-${encodeURIComponent(year.toLowerCase().replace(/%20/g, "-").replace(/[\s_]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, ""))}`}
                     className="bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-muted-foreground)] px-2.5 py-1 rounded font-bold uppercase tracking-wider text-[10px]"
                   >
                     {year}
@@ -255,7 +301,7 @@ export default function SeriesClient({ series }: { series: Novel }) {
                       return (
                         <li key={genre} className={isHidden ? "hidden" : "block"}>
                           <Link
-                            href={`/search?q=label%3A%22genre%3A${encodeURIComponent(genre.toLowerCase())}%22%2Blabel%3A%22type%3Aseries%22`}
+                            href={`/search?genres=${encodeURIComponent(genre.toLowerCase().replace(/%20/g, "-").replace(/[\s_]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, ""))}`}
                             className="bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-muted-foreground)] hover:border-transparent hover:bg-[var(--color-primary-muted)] hover:text-[var(--color-primary)] text-[11px] font-semibold px-2.5 py-1 rounded-full transition-colors cursor-pointer block"
                           >
                             {genre}
@@ -287,7 +333,7 @@ export default function SeriesClient({ series }: { series: Novel }) {
                         return (
                           <li key={tag} className={isHidden ? "hidden" : "block"}>
                             <Link
-                              href={`/search?q=label%3A%22tag%3A${encodeURIComponent(tag.toLowerCase().replace(/\s+/g, "-"))}%22%2Blabel%3A%22type%3Aseries%22`}
+                              href={`/search?tags=tag-${encodeURIComponent(tag.toLowerCase().replace(/%20/g, "-").replace(/[\s_]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, ""))}`}
                               className="bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-muted-foreground)] hover:border-transparent hover:bg-[var(--color-primary-muted)] hover:text-[var(--color-primary)] text-[11px] font-semibold px-2.5 py-1 rounded-full transition-colors cursor-pointer block"
                             >
                               {tag}
@@ -349,12 +395,7 @@ export default function SeriesClient({ series }: { series: Novel }) {
                       <span className="flex items-center gap-1.5">
                         <span className="font-semibold">Publisher:</span>
                         <span className="font-medium flex items-center gap-1.5 flex-wrap">
-                          <Link
-                            href={`/search?q=label%3A%22publisher%3A${encodeURIComponent(publisher.toLowerCase().replace(/\s+/g, "-"))}%22%2Blabel%3A%22type%3Aseries%22`}
-                            className="hover:text-[var(--color-primary)] transition-colors"
-                          >
-                            {publisher}
-                          </Link>
+                          {publisher}
                         </span>
                       </span>
                     )}
@@ -362,12 +403,7 @@ export default function SeriesClient({ series }: { series: Novel }) {
                       <span className="flex items-center gap-1.5">
                         <span className="font-semibold">Country:</span>
                         <span className="font-medium flex items-center gap-1.5 flex-wrap">
-                          <Link
-                            href={`/search?q=label%3A%22country%3A${encodeURIComponent(country.toLowerCase().replace(/\s+/g, "-"))}%22%2Blabel%3A%22type%3Aseries%22`}
-                            className="hover:text-[var(--color-primary)] transition-colors"
-                          >
-                            {country}
-                          </Link>
+                          {country}
                         </span>
                       </span>
                     )}
@@ -375,12 +411,7 @@ export default function SeriesClient({ series }: { series: Novel }) {
                       <span className="flex items-center gap-1.5">
                         <span className="font-semibold">Language:</span>
                         <span className="font-medium flex items-center gap-1.5 flex-wrap">
-                          <Link
-                            href={`/search?q=label%3A%22language%3A${encodeURIComponent(language.toLowerCase().replace(/\s+/g, "-"))}%22%2Blabel%3A%22type%3Aseries%22`}
-                            className="hover:text-[var(--color-primary)] transition-colors"
-                          >
-                            {language}
-                          </Link>
+                          {language}
                         </span>
                       </span>
                     )}
@@ -418,12 +449,7 @@ export default function SeriesClient({ series }: { series: Novel }) {
                               <span className="flex items-center gap-1.5">
                                 <span className="font-semibold">Publisher:</span>
                                 <span className="font-medium flex items-center gap-1.5 flex-wrap">
-                                  <Link
-                                    href={`/search?q=label%3A%22publisher%3A${encodeURIComponent(publisher.toLowerCase().replace(/\s+/g, "-"))}%22%2Blabel%3A%22type%3Aseries%22`}
-                                    className="hover:text-[var(--color-primary)] transition-colors"
-                                  >
-                                    {publisher}
-                                  </Link>
+                                  {publisher}
                                 </span>
                               </span>
                             )}
@@ -431,12 +457,7 @@ export default function SeriesClient({ series }: { series: Novel }) {
                               <span className="flex items-center gap-1.5">
                                 <span className="font-semibold">Country:</span>
                                 <span className="font-medium flex items-center gap-1.5 flex-wrap">
-                                  <Link
-                                    href={`/search?q=label%3A%22country%3A${encodeURIComponent(country.toLowerCase().replace(/\s+/g, "-"))}%22%2Blabel%3A%22type%3Aseries%22`}
-                                    className="hover:text-[var(--color-primary)] transition-colors"
-                                  >
-                                    {country}
-                                  </Link>
+                                  {country}
                                 </span>
                               </span>
                             )}
@@ -444,12 +465,7 @@ export default function SeriesClient({ series }: { series: Novel }) {
                               <span className="flex items-center gap-1.5">
                                 <span className="font-semibold">Language:</span>
                                 <span className="font-medium flex items-center gap-1.5 flex-wrap">
-                                  <Link
-                                    href={`/search?q=label%3A%22language%3A${encodeURIComponent(language.toLowerCase().replace(/\s+/g, "-"))}%22%2Blabel%3A%22type%3Aseries%22`}
-                                    className="hover:text-[var(--color-primary)] transition-colors"
-                                  >
-                                    {language}
-                                  </Link>
+                                  {language}
                                 </span>
                               </span>
                             )}
@@ -464,7 +480,7 @@ export default function SeriesClient({ series }: { series: Novel }) {
                               {series.genres.map((genre) => (
                                 <Link
                                   key={genre}
-                                  href={`/search?q=label%3A%22genre%3A${encodeURIComponent(genre.toLowerCase())}%22%2Blabel%3A%22type%3Aseries%22`}
+                                  href={`/search?genres=${encodeURIComponent(genre.toLowerCase().replace(/%20/g, "-").replace(/[\s_]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, ""))}`}
                                   className="bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-muted-foreground)] text-[11px] font-semibold px-2.5 py-1 rounded-full hover:border-transparent hover:bg-[var(--color-primary-muted)] hover:text-[var(--color-primary)] transition-colors cursor-pointer"
                                 >
                                   {genre}
@@ -482,7 +498,7 @@ export default function SeriesClient({ series }: { series: Novel }) {
                               {tags.map((tag) => (
                                 <Link
                                   key={tag}
-                                  href={`/search?q=label%3A%22tag%3A${encodeURIComponent(tag.toLowerCase().replace(/\s+/g, "-"))}%22%2Blabel%3A%22type%3Aseries%22`}
+                                  href={`/search?tags=tag-${encodeURIComponent(tag.toLowerCase().replace(/%20/g, "-").replace(/[\s_]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, ""))}`}
                                   className="bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-muted-foreground)] text-[11px] font-semibold px-2.5 py-1 rounded-full hover:border-transparent hover:bg-[var(--color-primary-muted)] hover:text-[var(--color-primary)] transition-colors cursor-pointer"
                                 >
                                   {tag}
@@ -499,10 +515,10 @@ export default function SeriesClient({ series }: { series: Novel }) {
 
               {/* Action Buttons */}
               <div className="flex flex-wrap items-center gap-3">
-                {series.chapters && series.chapters.length > 0 && (
+                {firstChapter && (
                   <Link
                     className="bg-[var(--color-primary)] text-[var(--color-background)] hover:bg-[var(--color-primary-hover)] font-bold py-2.5 px-5 rounded-[var(--radius)] text-xs md:text-sm flex items-center gap-2 transition-colors cursor-pointer shadow"
-                    href={`/series/${series.id}/ch/${series.chapters[0]?.number}-${series.chapters[0]?.id}`}
+                    href={`/series/${series.id}/ch/${firstChapter.number}-${firstChapter.id}`}
                     id="start-reading-btn"
                   >
                     <Play className="w-4 h-4 fill-current" /> Start Reading
@@ -599,44 +615,90 @@ export default function SeriesClient({ series }: { series: Novel }) {
             {series.genres && series.genres.length > 0 && (
               <ul className="genres">
                 {series.genres.map((g) => (
-                  <li key={g}>{g}</li>
+                  <li key={g}>
+                    <Link href={`/search?genres=${encodeURIComponent(g.toLowerCase().replace(/%20/g, "-").replace(/[\s_]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, ""))}`}>
+                      {g}
+                    </Link>
+                  </li>
                 ))}
               </ul>
             )}
             {tags.length > 0 && (
               <ul className="tag">
                 {tags.map((t) => (
-                  <li key={t}>{t}</li>
+                  <li key={t}>
+                    <Link href={`/search?tags=tag-${encodeURIComponent(t.toLowerCase().replace(/%20/g, "-").replace(/[\s_]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, ""))}`}>
+                      {t}
+                    </Link>
+                  </li>
                 ))}
               </ul>
             )}
-            {media && <span className="media">{media}</span>}
-            <span className="author">{series.author}</span>
-            {artist && <span className="artist">{artist}</span>}
-            {publisher && <span className="publisher">{publisher}</span>}
-            {country && <span className="country">{country}</span>}
-            {language && <span className="language">{language}</span>}
-            <span className="status">{series.status}</span>
-            {year && <span className="year">{year}</span>}
+            {media && (
+              <span className="media">
+                <Link href={`/search?media=media-${encodeURIComponent(media.toLowerCase().replace(/%20/g, "-").replace(/[\s_]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, ""))}`}>
+                  {media}
+                </Link>
+              </span>
+            )}
+            <span className="author">
+              <Link href={`/search?author=author-${encodeURIComponent(series.author.toLowerCase().replace(/%20/g, "-").replace(/[\s_]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, ""))}`}>
+                {series.author}
+              </Link>
+            </span>
+            {artist && (
+              <span className="artist">
+                <Link href={`/search?artist=artist-${encodeURIComponent(artist.toLowerCase().replace(/%20/g, "-").replace(/[\s_]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, ""))}`}>
+                  {artist}
+                </Link>
+              </span>
+            )}
+            {publisher && (
+              <span className="publisher">
+                {publisher}
+              </span>
+            )}
+            {country && (
+              <span className="country">
+                {country}
+              </span>
+            )}
+            {language && (
+              <span className="language">
+                {language}
+              </span>
+            )}
+            <span className="status">
+              <Link href={`/search?status=status-${encodeURIComponent(series.status.toLowerCase().replace(/%20/g, "-").replace(/[\s_]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, ""))}`}>
+                {series.status}
+              </Link>
+            </span>
+            {year && (
+              <span className="year">
+                <Link href={`/search?year=year-${encodeURIComponent(year.toLowerCase().replace(/%20/g, "-").replace(/[\s_]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, ""))}`}>
+                  {year}
+                </Link>
+              </span>
+            )}
           </div>
 
           <div className="hidden" id="series-page-metadata" aria-hidden="true">
-            <span className="label-item">author:{series.author.toLowerCase().replace(/\s+/g, "-")}</span>
+            <span className="label-item">author:{series.author.toLowerCase().replace(/%20/g, "-").replace(/[\s_]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "")}</span>
             {series.genres && series.genres[0] && (
-              <span className="label-item">genre:{series.genres[0].toLowerCase()}</span>
+              <span className="label-item">genre:{series.genres[0].toLowerCase().replace(/%20/g, "-").replace(/[\s_]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "")}</span>
             )}
             {media && (
-              <span className="label-item">media:{media.toLowerCase()}</span>
+              <span className="label-item">media:{media.toLowerCase().replace(/%20/g, "-").replace(/[\s_]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "")}</span>
             )}
-            <span className="label-item">series:{series.title.toLowerCase().replace(/\s+/g, "-")}</span>
-            <span className="label-item">status:{series.status.toLowerCase()}</span>
+            <span className="label-item">series:{series.title.toLowerCase().replace(/%20/g, "-").replace(/[\s_]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "")}</span>
+            <span className="label-item">status:{series.status.toLowerCase().replace(/%20/g, "-").replace(/[\s_]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "")}</span>
             <span className="label-item">type:series</span>
           </div>
 
           {/* Chapters Section */}
           <div className="mt-8" id="chapters-section">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base text-[var(--color-foreground)] font-bold">Chapters</h3>
+              <h3 id="chapter-list" className="text-base text-[var(--color-foreground)] font-bold">Chapters</h3>
             </div>
             <div className="flex flex-col md:flex-row gap-3 items-center justify-between p-4 bg-[var(--color-surface)]/50 text-xs rounded-t-[var(--radius)] border border-[var(--color-border)]">
               <div className="relative w-full md:w-72">
@@ -651,6 +713,15 @@ export default function SeriesClient({ series }: { series: Novel }) {
                 />
               </div>
               <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+                {lastReadNumber !== null && (
+                  <button
+                    onClick={handleResetProgress}
+                    title="Reset reading progress"
+                    className="bg-[var(--color-surface)] hover:bg-[var(--color-surface)]/80 border border-[var(--color-border)] text-[var(--color-destructive)] px-3 py-2 rounded-[var(--radius)] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer text-sm"
+                  >
+                    Reset
+                  </button>
+                )}
                 <button
                   onClick={() => setSortOrder(sortOrder === "desc" ? "asc" : "desc")}
                   id="chapter-sort-btn"
@@ -668,21 +739,32 @@ export default function SeriesClient({ series }: { series: Novel }) {
                   <Link
                     key={chapter.id}
                     href={`/series/${series.id}/ch/${chapter.number}-${chapter.id}`}
-                    className="flex items-center justify-between gap-4 px-5 py-3.5 hover:bg-surface-foreground transition-colors group border-b border-[var(--color-border)] last:border-b-0"
+                    onClick={() => handleChapterClick(chapter)}
+                    className={cn(
+                      "flex items-center justify-between gap-4 px-5 py-3.5 transition-colors group border-b border-[var(--color-border)] last:border-b-0",
+                      lastReadNumber !== null && chapter.number === lastReadNumber
+                        ? "bg-[var(--color-primary-muted)] hover:bg-[var(--color-primary-muted)]/80"
+                        : "hover:bg-[var(--color-surface-foreground)] hover:bg-surface-foreground"
+                    )}
                   >
                     <div className="flex items-baseline gap-2 min-w-0 flex-grow">
                       <span className="text-xs md:text-sm font-semibold text-[var(--color-foreground)] transition-colors whitespace-nowrap flex-shrink-0">
                         Ch. {chapter.number}
                       </span>
-                      {chapter.title && (
+                      {chapter.title && formatChapterTitle(series.title, chapter.title) && (
                         <span className="text-[11px] md:text-xs text-[var(--color-muted-foreground)] font-medium truncate">
-                          {chapter.title}
+                          {formatChapterTitle(series.title, chapter.title)}
                         </span>
                       )}
                     </div>
                     <div className="flex items-center gap-4 text-xs text-[var(--color-muted-foreground)] flex-shrink-0">
                       <RelativeTime date={chapter.publishedAt} />
-                      <Bookmark className="w-3.5 h-3.5 fill-none stroke-current opacity-60 group-hover:opacity-100 transition-opacity" />
+                      <Bookmark className={cn(
+                        "w-3.5 h-3.5 transition-opacity",
+                        lastReadNumber !== null && chapter.number === lastReadNumber
+                          ? "fill-[var(--color-primary)] text-[var(--color-primary)] opacity-100"
+                          : "fill-none stroke-current opacity-60 group-hover:opacity-100"
+                      )} />
                     </div>
                   </Link>
                 ))
@@ -692,7 +774,7 @@ export default function SeriesClient({ series }: { series: Novel }) {
                 </div>
               )}
             </div>
-            
+
             {sortedAndFilteredChapters.length > 25 && (
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 px-2 py-2">
                 <div className="flex items-center space-x-2 text-sm text-[var(--color-muted-foreground)]">
@@ -722,7 +804,7 @@ export default function SeriesClient({ series }: { series: Novel }) {
                     >
                       <ChevronLeft className="h-4 w-4" />
                     </Button>
-                    
+
                     <div className="flex items-center mx-1 gap-1">
                       {Array.from({ length: totalPages }, (_, i) => i + 1)
                         .filter((p) => p === 1 || p === totalPages || Math.abs(currentPage - p) <= 1)
@@ -735,8 +817,8 @@ export default function SeriesClient({ series }: { series: Novel }) {
                                 variant={currentPage === p ? "default" : "outline"}
                                 className={cn(
                                   "h-8 w-8 p-0 text-sm",
-                                  currentPage === p 
-                                    ? "bg-[var(--color-primary)] text-[var(--color-background)] hover:bg-[var(--color-primary-hover)]" 
+                                  currentPage === p
+                                    ? "bg-[var(--color-primary)] text-[var(--color-background)] hover:bg-[var(--color-primary-hover)]"
                                     : "bg-transparent text-[var(--color-foreground)] border-[var(--color-border)] hover:bg-[var(--color-surface)]",
                                   currentPage !== p && "hidden sm:inline-flex"
                                 )}
@@ -762,25 +844,6 @@ export default function SeriesClient({ series }: { series: Novel }) {
                 </div>
               </div>
             )}
-          </div>
-
-          {/* Comments Section */}
-          <div className="mt-8 mb-8 md:mb-0">
-            <section className="cm comments-shell">
-              <div className="cmShw">
-                <a
-                  className="cmBtn bg-[var(--color-surface)] border border-[var(--color-border)] hover:bg-[var(--color-card)] text-[var(--color-foreground)] rounded-[var(--radius)] py-3 px-4 font-bold text-center block text-sm transition-colors"
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    alert("Comments section integration placeholder.");
-                  }}
-                  role="button"
-                >
-                  <span>Disquss</span>
-                </a>
-              </div>
-            </section>
           </div>
         </article>
       </div>

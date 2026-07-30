@@ -7,21 +7,19 @@ export const SITE = {
     // Base URL untuk endpoint WordPress REST API v2
     API_REST: "https://public-api.wordpress.com/wp/v2/sites",
     // Jumlah post maksimal per halaman (default fetching limit)
-    PER_PAGE: 10,
+    PER_PAGE: 24,
+    // Ambil disini https://public-api.wordpress.com/rest/v1.1/sites/{site.id}/posts?type=page
+    POPULAR_POST_ID: 396,
+    POPULAR_POST_ID_TTL_SECONDS: 7200,
+    LAST_READ_MAX_POSTS: 100,
 } as const;
 
-// Konfigurasi khusus untuk Incremental Static Regeneration (ISR)
-export const ISR_CONFIG = {
-    // Batas jumlah halaman series yang akan di-build secara statis pada saat build-time (npm run build).
-    // Sisanya akan di-generate secara on-demand.
-    SERIES_BUILD_LIMIT: 20,
-} as const;
 
 // Data informasi umum blog untuk keperluan SEO (Metadata) dan UI
 export const BLOG = {
     TITLE: "BozuNovel",
     DESCRIPTION: "Baca Shōsetsu (小説), Raito Noberu (ラノベ), Soseol (소설), Wepsoseol (웹소설) Korea & web novel gratis bahasa Indonesia. Platform baca novel Jepang dan Korea dari raw",
-    URL: process.env.NEXT_PUBLIC_SITE_URL || "https://bozunovel.com",
+    URL: process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
     KEYWORDS: [
         "Shōsetsu",
         "小説",

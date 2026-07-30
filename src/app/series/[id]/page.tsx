@@ -1,6 +1,6 @@
-import { getSeriesById } from "@/lib/wp";
+﻿import { getSeriesById } from "@/lib/wp";
 import SeriesClient from "./SeriesClient";
-import { SITE, ISR_CONFIG, BLOG } from "@/config/site";
+import { SITE, BLOG } from "@/config/site";
 import Link from "next/link";
 import { Metadata } from "next";
 
@@ -16,7 +16,7 @@ export async function generateStaticParams() {
     const categoryId = catData[0].id;
 
     // 2. Fetch posts
-    const url = `${SITE.API_REST}/${SITE.ID}/posts?categories=${categoryId}&orderby=modified&order=desc&per_page=${ISR_CONFIG.SERIES_BUILD_LIMIT}&_fields=id,title`;
+    const url = `${SITE.API_REST}/${SITE.ID}/posts?categories=${categoryId}&orderby=modified&order=desc&per_page=100&_fields=id,title`;
     const res = await fetch(url);
     if (!res.ok) return [];
     const data = await res.json();
@@ -25,9 +25,9 @@ export async function generateStaticParams() {
       return data.map((post: any) => {
         const title = post.title?.rendered || "";
         const kebabTitle = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-        const novelId = `${post.id}-${kebabTitle}`;
+        const seriesId = `${post.id}-${kebabTitle}`;
         return {
-          id: novelId,
+          id: seriesId,
         };
       });
     }
@@ -48,7 +48,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     };
   }
 
-  const cleanDescription = series.description?.replace(/<[^>]+>/g, '').substring(0, 160) || `Baca novel ${series.title} di ${BLOG.TITLE}`;
+  const cleanDescription = series.description?.replace(/<[^>]+>/g, '').substring(0, 160) || `Baca seriesItem ${series.title} di ${BLOG.TITLE}`;
 
   return {
     title: series.title,
@@ -97,7 +97,7 @@ export default async function SeriesPage({ params }: { params: Promise<{ id: str
     "name": series.title,
     "url": `${BLOG.URL}/series/${id}`,
     "image": series.cover,
-    "description": series.description?.replace(/<[^>]+>/g, '') || `Baca novel ${series.title} di ${BLOG.TITLE}`,
+    "description": series.description?.replace(/<[^>]+>/g, '') || `Baca seriesItem ${series.title} di ${BLOG.TITLE}`,
     "author": {
       "@type": "Person",
       "name": series.author || "Unknown"

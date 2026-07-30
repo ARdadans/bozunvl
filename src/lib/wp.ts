@@ -1,5 +1,5 @@
 import { SITE } from "@/config/site";
-export interface Novel {
+export interface Series {
   id: string;
   title: string;
   author: string;
@@ -99,7 +99,7 @@ export async function getCategoryId(slug: string): Promise<number | null> {
   // 2. Fetch from WP API if not cached
   try {
     const url = `${SITE.API_REST}/${SITE.ID}/categories?slug=${slug}&_fields=id`;
-    const res = await fetch(url);
+    const res = await fetch(url, { cache: 'force-cache' });
     if (!res.ok) throw new Error("Failed to fetch category");
     const data = await res.json();
 
@@ -125,10 +125,12 @@ function decodeHtmlEntities(text: string): string {
   return textArea.value;
 }
 
-// Mapping WP Post to Novel interface
-function mapWpPostToNovel(post: any): Novel {
-  const htmlContent = post.content?.rendered || "";
-  const title = decodeHtmlEntities(post.title?.rendered || "Unknown Title");
+// Mapping WP Post to Series interface
+function mapWpPostToSeries(post: any): Series {
+  const htmlContent = post.content?.rendered || post.content || "";
+  const titleStr = post.title?.rendered || post.title || "Unknown Title";
+  const title = decodeHtmlEntities(titleStr);
+  const postId = post.id || post.ID;
 
   // Helper for span extraction
   const getSpanText = (className: string, defaultVal: string = "") => {
@@ -151,14 +153,14 @@ function mapWpPostToNovel(post: any): Novel {
   };
 
   // Extract cover from <img class="poster" src="...">
-  let coverUrl = post.jetpack_featured_media_url;
+  let coverUrl = post.jetpack_featured_media_url || post.featured_image;
   if (!coverUrl) {
     const posterMatch = htmlContent.match(/<img[^>]*class=["']poster["'][^>]*src=["']([^"']+)["']/i) ||
       htmlContent.match(/<img[^>]*src=["']([^"']+)["'][^>]*class=["']poster["']/i);
     if (posterMatch && posterMatch[1]) {
       coverUrl = posterMatch[1];
     } else {
-      coverUrl = `https://placehold.co/300x450/1a1a2e/ffffff?text=Novel+${post.id}`;
+      coverUrl = `https://placehold.co/300x450/1a1a2e/ffffff?text=Series+${postId}`;
     }
   }
 
@@ -179,7 +181,7 @@ function mapWpPostToNovel(post: any): Novel {
   const statusRaw = getSpanText("status", "Ongoing");
   const status = (statusRaw.toLowerCase() === "completed" ? "Completed" : "Ongoing") as "Ongoing" | "Completed";
   const year = getSpanText("year");
-  const media = getSpanText("media", "Novel");
+  const media = getSpanText("media", "Series");
 
   const titleAlts = getListItems("title-alts");
   const genres = getListItems("genres");
@@ -216,10 +218,10 @@ function mapWpPostToNovel(post: any): Novel {
   }
 
   const kebabTitle = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-  const novelId = `${post.id}-${kebabTitle}`;
+  const seriesId = `${postId}-${kebabTitle}`;
 
   return {
-    id: novelId,
+    id: seriesId,
     title: title,
     author: author,
     cover: coverUrl,
@@ -242,15 +244,15 @@ function mapWpPostToNovel(post: any): Novel {
   };
 }
 
-export async function getSeriesByCategory(categoryId: number, page: number = 1, perPage: number = SITE.PER_PAGE): Promise<Novel[]> {
+export async function getSeriesByCategory(categoryId: number, page: number = 1, perPage: number = SITE.PER_PAGE): Promise<Series[]> {
   try {
     const url = `${SITE.API_REST}/${SITE.ID}/posts?categories=${categoryId}&orderby=modified&order=desc&per_page=${perPage}&page=${page}&_fields=id,title,content,modified`;
-    const res = await fetch(url);
+    const res = await fetch(url, { cache: 'force-cache' });
     if (!res.ok) throw new Error("Failed to fetch series");
     const data = await res.json();
 
     if (Array.isArray(data)) {
-      return data.map(mapWpPostToNovel);
+      return data.map(mapWpPostToSeries);
     }
     return [];
   } catch (err) {
@@ -259,18 +261,143 @@ export async function getSeriesByCategory(categoryId: number, page: number = 1, 
   }
 }
 
-export async function getSeriesById(slugId: string): Promise<Novel | null> {
+export async function searchSeries(
+  query: string,
+  page: number = 1,
+  perPage: number = SITE.PER_PAGE,
+  sortBy: string = "terupdate",
+  filters?: {
+    media?: string[];
+    status?: string[];
+    releaseYear?: string[];
+    genres?: string[];
+    tags?: string[];
+    author?: string[];
+    artist?: string[];
+  }
+): Promise<Series[]> {
+  try {
+    let orderByParam = "order_by=modified";
+    let orderParam = "&order=DESC";
+
+    if (sortBy === "terbaru") {
+      orderByParam = "order_by=date";
+      orderParam = "&order=DESC";
+    } else if (sortBy === "judul-asc") {
+      orderByParam = "order_by=title";
+      orderParam = "&order=ASC";
+    } else if (sortBy === "judul-desc") {
+      orderByParam = "order_by=title";
+      orderParam = "&order=DESC";
+    }
+
+    let url = `https://public-api.wordpress.com/rest/v1.1/sites/${SITE.ID}/posts?fields=found,ID,title,modified,content&number=${perPage}&page=${page}&${orderByParam}${orderParam}`;
+
+    let categorySlugs = [];
+    if (filters?.media) categorySlugs.push(...filters.media);
+    if (filters?.status) categorySlugs.push(...filters.status);
+    if (filters?.genres) categorySlugs.push(...filters.genres);
+    
+    categorySlugs.push("type-series");
+    categorySlugs.forEach(c => {
+      url += `&category=${c}`;
+    });
+
+    let tagSlugs = [];
+    if (filters?.tags) tagSlugs.push(...filters.tags);
+    if (filters?.releaseYear) tagSlugs.push(...filters.releaseYear);
+    if (filters?.author) tagSlugs.push(...filters.author);
+    if (filters?.artist) tagSlugs.push(...filters.artist);
+
+    tagSlugs.forEach(t => {
+      url += `&tag=${t}`;
+    });
+
+    let searchQuery = query || "";
+    if (searchQuery.trim()) {
+      url += `&search=${encodeURIComponent(searchQuery.trim())}`;
+    }
+
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error("Failed to search series");
+    const data = await res.json();
+
+    if (data && data.posts && Array.isArray(data.posts)) {
+      return data.posts.map(mapWpPostToSeries);
+    }
+    return [];
+  } catch (err) {
+    console.error("Failed to search series:", err);
+    return [];
+  }
+}
+
+export async function getSeriesById(slugId: string): Promise<Series | null> {
   if (!slugId || typeof slugId !== "string") return null;
   const numericId = slugId.split("-")[0];
   if (!numericId) return null;
   try {
     const url = `${SITE.API_REST}/${SITE.ID}/posts/${numericId}?_fields=id,title,content,modified`;
-    const res = await fetch(url, { next: { tags: ['series', slugId] } });
+    const res = await fetch(url, { cache: 'force-cache' });
     if (!res.ok) throw new Error("Failed to fetch series by ID");
     const data = await res.json();
-    return mapWpPostToNovel(data);
+    return mapWpPostToSeries(data);
   } catch (err) {
     console.error("Failed to fetch series by ID:", err);
     return null;
   }
 }
+
+export async function getPopularSeries(): Promise<Series[]> {
+  try {
+    const url = `https://public-api.wordpress.com/rest/v1.1/sites/${SITE.ID}/posts/${SITE.POPULAR_POST_ID}?fields=modified,title,content,slug`;
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error("Failed to fetch popular series");
+    const data = await res.json();
+
+    // Use greedy match [\s\S]* because the HTML content inside the JSON contains inner <pre> tags (like <pre id="series-meta">)
+    const match = data.content.match(/<pre[^>]*class=["']popular["'][^>]*>([\s\S]*)<\/pre>/i);
+    if (match && match[1]) {
+      const decoded = decodeHtmlEntities(match[1]);
+      
+      try {
+        const json = JSON.parse(decoded);
+        if (json && json.posts && Array.isArray(json.posts)) {
+          return json.posts.map(mapWpPostToSeries);
+        }
+      } catch (parseError) {
+        // Fallback: If JSON is invalid due to unescaped inner quotes, use a regex parser
+        const posts: any[] = [];
+        // Use greedy match [\s\S]* so it finds the LAST bracket instead of stopping at an inner bracket like ]}}
+        const postsMatch = decoded.match(/"posts"\s*:\s*\[([\s\S]*)\](?:\s*,\s*"meta"|\s*\})/);
+        
+        if (postsMatch && postsMatch[1]) {
+          const postsStr = postsMatch[1];
+          const postRegex = /\{"ID":\s*(\d+)\s*,\s*"modified":\s*"([\s\S]*?)"\s*,\s*"title":\s*"([\s\S]*?)"\s*,\s*"content":\s*"([\s\S]*?)"\}(?=\s*,\s*\{"ID"|$)/g;
+          
+          let matchPost;
+          const unescapeStr = (s: string) => s.replace(/\\"/g, '"')
+                                              .replace(/\\n/g, '\n')
+                                              .replace(/\\r/g, '\r')
+                                              .replace(/\\t/g, '\t')
+                                              .replace(/\\\//g, '/')
+                                              .replace(/\\\\/g, '\\');
+          while ((matchPost = postRegex.exec(postsStr)) !== null) {
+            posts.push({
+              ID: parseInt(matchPost[1], 10),
+              modified: unescapeStr(matchPost[2]),
+              title: unescapeStr(matchPost[3]),
+              content: unescapeStr(matchPost[4])
+            });
+          }
+          return posts.map(mapWpPostToSeries);
+        }
+      }
+    }
+    return [];
+  } catch (err) {
+    console.error("Failed to fetch popular series:", err);
+    return [];
+  }
+}
+

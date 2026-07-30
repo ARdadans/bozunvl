@@ -16,11 +16,6 @@ export function SiteFooter() {
         <p className="text-sm text-muted-foreground">
           &copy; {new Date().getFullYear()} {BLOG.TITLE}. All rights reserved.
         </p>
-        <nav className="flex gap-6 text-sm text-muted-foreground">
-          <Link href="/" className="transition-colors hover:text-foreground">
-            Home
-          </Link>
-        </nav>
       </div>
     </footer>
   );

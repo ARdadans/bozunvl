@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight, BookOpen, Settings, Home, List, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Chapter } from "@/lib/wp";
+import { toast } from "sonner";
 
 interface ReaderProps {
   seriesId: string;
@@ -77,13 +78,13 @@ export function Reader({ seriesId, seriesTitle, chapter, totalChapters, prevChap
         <Link aria-label="Series" className="flex h-11 w-11 items-center justify-center text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-foreground" href={`/series/${seriesId}`} id="chapter-series-btn" title="Series">
           <BookOpen className="h-4 w-4" />
         </Link>
-        <button aria-label="Chapter List" className="flex h-11 w-11 items-center justify-center text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-foreground" id="chapter-side-toc-btn" title="Chapter List">
+        <Link aria-label="Chapter List" className="flex h-11 w-11 items-center justify-center text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-foreground" href={`/series/${seriesId}#chapter-list`} id="chapter-side-toc-btn" title="Chapter List">
           <List className="h-4 w-4" />
-        </button>
-        <button aria-label="Info" className="flex h-11 w-11 items-center justify-center text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-foreground" id="chapter-info-btn" title="Info">
+        </Link>
+        <button onClick={() => toast("Coming soon")} aria-label="Info" className="flex h-11 w-11 items-center justify-center text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-foreground" id="chapter-info-btn" title="Info">
           <Info className="h-4 w-4" />
         </button>
-        <button aria-label="Reader Settings" className="flex h-11 w-11 items-center justify-center text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-foreground" id="chapter-side-settings-btn" title="Reader Settings">
+        <button onClick={() => toast("Coming soon")} aria-label="Reader Settings" className="flex h-11 w-11 items-center justify-center text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-foreground" id="chapter-side-settings-btn" title="Reader Settings">
           <Settings className="h-4 w-4" />
         </button>
       </div>

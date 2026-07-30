@@ -1,6 +1,7 @@
 import HomeClient from "./HomeClient";
 import { Metadata } from "next";
-import { BLOG } from "@/config/site";
+import { BLOG, SITE } from "@/config/site";
+import { getCategoryId, getSeriesByCategory, getPopularSeries } from "@/lib/wp";
 
 export const metadata: Metadata = {
   title: BLOG.TITLE,
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function Page() {
+export default async function Page() {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "WebSite",
@@ -30,13 +31,20 @@ export default function Page() {
     "description": BLOG.DESCRIPTION,
   };
 
+  const categoryId = await getCategoryId("type-series");
+  let initialSeries: any[] = [];
+
+  if (categoryId) {
+    initialSeries = await getSeriesByCategory(categoryId, 1, SITE.PER_PAGE);
+  } // trigger rebuild
+
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <HomeClient />
+      <HomeClient initialSeries={initialSeries} />
     </>
   );
 }

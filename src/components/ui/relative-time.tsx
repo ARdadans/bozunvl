@@ -54,25 +54,35 @@ export function RelativeTime({
   const generatedId = useId();
   const dateValue = useMemo(() => toDate(date).getTime(), [date]);
 
+  const [isMounted, setIsMounted] = useState(false);
+  const [now, setNow] = useState(0);
+
   const formatter = useMemo(() => {
     return (time: number) => formatRelative(time, dateValue);
   }, [dateValue]);
 
-  const [now, setNow] = useState(() => dateValue);
-
   useEffect(() => {
+    setIsMounted(true);
     const updateTime = () => setNow(Date.now());
-    const timeoutId = setTimeout(updateTime, 0);
+    updateTime(); // Set initial client time
 
     if (!refreshIntervalMs || refreshIntervalMs <= 0) {
-      return () => clearTimeout(timeoutId);
+      return;
     }
     const intervalId = setInterval(updateTime, refreshIntervalMs);
     return () => {
-      clearTimeout(timeoutId);
       clearInterval(intervalId);
     };
   }, [refreshIntervalMs]);
+
+  // Fallback for SSR/SSG so view source doesn't show "just now"
+  const absoluteFallback = useMemo(() => {
+    return new Intl.DateTimeFormat("en", {
+      day: "numeric",
+      month: "short",
+      year: "numeric"
+    }).format(dateValue);
+  }, [dateValue]);
 
   return (
     <time
@@ -81,7 +91,7 @@ export function RelativeTime({
       className={className}
       suppressHydrationWarning
     >
-      {formatter(now)}
+      {isMounted ? formatter(now) : absoluteFallback}
     </time>
   );
 }

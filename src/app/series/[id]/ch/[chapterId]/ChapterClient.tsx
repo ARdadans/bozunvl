@@ -1,15 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getSeriesById, Chapter, Novel } from "@/lib/wp";
+import { Chapter } from "@/lib/wp";
 import { SITE } from "@/config/site";
 import { Reader } from "@/components/chapter/reader";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
+import { saveSeriesProgress } from "@/lib/indexeddb";
+
+interface ChapterPageData {
+  seriesId: string;
+  seriesTitle: string;
+  chapter: Chapter;
+  prevChapterId?: string;
+  nextChapterId?: string;
+}
 
 export default function ChapterClient({ id, chapterId }: { id: string; chapterId: string }) {
-  const [novel, setNovel] = useState<Novel | null>(null);
-  const [chapter, setChapter] = useState<Chapter | null>(null);
+  const [data, setData] = useState<ChapterPageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -18,43 +26,71 @@ export default function ChapterClient({ id, chapterId }: { id: string; chapterId
     async function fetchData() {
       try {
         setLoading(true);
-        // Fetch series metadata
-        const fetchedNovel = await getSeriesById(id);
-        if (!fetchedNovel) {
-          if (isMounted) {
-            setError(true);
-            setLoading(false);
-          }
-          return;
-        }
 
         const parts = chapterId.split("-");
-        const numericId = parts.length > 1 ? parts[1] : parts[0];
+        const numericId = parts.length > 1 ? parts[parts.length - 1] : parts[0];
 
-        // Fetch chapter content
+        // Fetch chapter content directly, completely independent of series API
         const url = `${SITE.API_REST}/${SITE.ID}/posts/${numericId}?_fields=id,title,content,modified`;
         const res = await fetch(url);
         if (!res.ok) throw new Error("Failed to fetch chapter");
-        const data = await res.json();
-        const chapterContent = data.content?.rendered || "";
+        const jsonRes = await res.json();
+        const chapterContent = jsonRes.content?.rendered || "";
 
-        const currentChapterMeta = fetchedNovel.chapters.find(c => c.id.toString() === numericId);
-
-        if (!currentChapterMeta) {
-          if (isMounted) {
-            setError(true);
-            setLoading(false);
+        // Extract metadata from <pre id="chapter-meta">
+        let meta: any = {};
+        const metaMatch = chapterContent.match(/<pre[^>]*id=["']chapter-meta["'][^>]*>([\s\S]*?)<\/pre>/i);
+        if (metaMatch && metaMatch[1]) {
+          try {
+            const textArea = document.createElement('textarea');
+            textArea.innerHTML = metaMatch[1];
+            meta = JSON.parse(textArea.value);
+          } catch(e) {
+            console.error("Failed to parse chapter-meta", e);
           }
-          return;
         }
 
+        const seriesTitle = meta.series || "Unknown Series";
+        const chapterNumber = meta.chapter || numericId;
+
+        // Clean title
+        const rawTitle = jsonRes.title?.rendered || `Chapter ${chapterNumber}`;
+        const textAreaTitle = document.createElement('textarea');
+        textAreaTitle.innerHTML = rawTitle;
+        const decodedRawTitle = textAreaTitle.value;
+        
+        // Remove "{Series Title} Ch. {Number}" prefix if it exists
+        const prefixRegex = new RegExp(`^${seriesTitle}\\s*Ch\\.?\\s*${chapterNumber}\\s*[-–—:]?\\s*`, 'i');
+        let cleanTitle = decodedRawTitle.replace(prefixRegex, '').trim();
+        if (!cleanTitle) {
+          cleanTitle = decodedRawTitle;
+        }
+
+        const nextChapterIdStr = meta.next ? `${meta.next.chapter}-${meta.next.postId}` : undefined;
+        const prevChapterIdStr = meta.previous ? `${meta.previous.chapter}-${meta.previous.postId}` : undefined;
+
         if (isMounted) {
-          setNovel(fetchedNovel);
-          setChapter({
-            ...currentChapterMeta,
-            content: chapterContent
+          setData({
+            seriesId: id, // using the slug from the URL
+            seriesTitle: seriesTitle,
+            chapter: {
+              id: numericId,
+              number: Number(chapterNumber),
+              title: cleanTitle,
+              publishedAt: jsonRes.modified || new Date().toISOString(),
+              wordCount: 0,
+              content: chapterContent
+            },
+            prevChapterId: prevChapterIdStr,
+            nextChapterId: nextChapterIdStr
           });
           setLoading(false);
+          
+          saveSeriesProgress({
+            seriesId: id,
+            chapterId: numericId,
+            number: Number(chapterNumber)
+          });
         }
       } catch (err) {
         console.error(err);
@@ -80,7 +116,7 @@ export default function ChapterClient({ id, chapterId }: { id: string; chapterId
     );
   }
 
-  if (error || !novel || !chapter) {
+  if (error || !data) {
     return (
       <div className="container mx-auto px-4 py-16 text-center text-[var(--color-foreground)]">
         <h1 className="font-heading text-2xl font-bold">Chapter not found</h1>
@@ -95,23 +131,14 @@ export default function ChapterClient({ id, chapterId }: { id: string; chapterId
     );
   }
 
-  const parts = chapterId.split("-");
-  const numericId = parts.length > 1 ? parts[1] : parts[0];
-  const currentIndex = novel.chapters.findIndex((c) => c.id.toString() === numericId);
-  const prevChapter = currentIndex > 0 ? novel.chapters[currentIndex - 1] : undefined;
-  const nextChapter = currentIndex < novel.chapters.length - 1 ? novel.chapters[currentIndex + 1] : undefined;
-
-  const prevChapterIdStr = prevChapter ? `${prevChapter.number}-${prevChapter.id}` : undefined;
-  const nextChapterIdStr = nextChapter ? `${nextChapter.number}-${nextChapter.id}` : undefined;
-
   return (
     <Reader
-      seriesId={novel.id}
-      seriesTitle={novel.title}
-      chapter={chapter}
-      totalChapters={novel.chapters.length}
-      prevChapterId={prevChapterIdStr}
-      nextChapterId={nextChapterIdStr}
+      seriesId={data.seriesId}
+      seriesTitle={data.seriesTitle}
+      chapter={data.chapter}
+      totalChapters={0} // Independent fetch doesn't know total chapters
+      prevChapterId={data.prevChapterId}
+      nextChapterId={data.nextChapterId}
     />
   );
 }

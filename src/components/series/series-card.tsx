@@ -1,11 +1,11 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
-import { Novel } from "@/lib/wp";
+import { Series } from "@/lib/wp";
 import { RelativeTime } from "@/components/ui/relative-time";
 
 interface SeriesCardProps {
-  series: Novel;
+  series: Series;
   index?: number;
 }
 
@@ -41,4 +41,3 @@ export function SeriesCard({ series, index = 0 }: SeriesCardProps) {
     </div>
   );
 }
-

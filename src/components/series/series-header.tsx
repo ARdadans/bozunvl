@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -6,10 +6,10 @@ import { ArrowLeft, BookOpen, Clock, Star, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Novel } from "@/lib/wp";
+import { Series } from "@/lib/wp";
 
 interface SeriesHeaderProps {
-  series: Novel;
+  series: Series;
 }
 
 export function SeriesHeader({ series }: SeriesHeaderProps) {
@@ -51,12 +51,12 @@ export function SeriesHeader({ series }: SeriesHeaderProps) {
                 <User className="h-4 w-4" />
                 {series.author}
               </span>
-              <span>•</span>
+              <span>â€¢</span>
               <span className="flex items-center gap-1">
                 <Star className="h-4 w-4 fill-primary text-primary" />
                 {series.rating}
               </span>
-              <span>•</span>
+              <span>â€¢</span>
               <span className="flex items-center gap-1">
                 <Clock className="h-4 w-4" />
                 Updated {series.updatedAt}
