@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, Search, Bolt, Menu, X, Bookmark } from "lucide-react";
-import { useState, useEffect, useSyncExternalStore, useCallback } from "react";
+import { Search, Bolt, Menu, X, Bookmark } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { BLOG } from "@/config/site";
@@ -27,27 +27,6 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { idbGet } from "@/lib/wp";
-
-
-function useMediaQuery(query: string) {
-  const subscribe = useCallback(
-    (callback: () => void) => {
-      const matchMedia = window.matchMedia(query);
-      matchMedia.addEventListener("change", callback);
-      return () => matchMedia.removeEventListener("change", callback);
-    },
-    [query]
-  );
-
-  const getSnapshot = useCallback(() => {
-    return window.matchMedia(query).matches;
-  }, [query]);
-
-  const getServerSnapshot = () => false;
-
-  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-}
-
 
 
 // Buttons are inlined in SiteHeader to coordinate search triggers responsive state.
@@ -107,17 +86,20 @@ export function SiteHeader({ className }: { className?: string }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [inputValue, setInputValue] = useState("");
-  const isDesktop = useMediaQuery("(min-width: 768px)");
   const router = useRouter();
+
+  const handleOpenSearch = useCallback(() => {
+    setInputValue("");
+    setSearchOpen(true);
+  }, []);
 
   useEffect(() => {
     if (searchOpen) {
-      idbGet("recent_searches").then((res) => {
+      idbGet<string[]>("recent_searches").then((res) => {
         if (res && Array.isArray(res)) {
-          setRecentSearches(res);
+          setRecentSearches(res as string[]);
         }
       });
-      setInputValue("");
     }
   }, [searchOpen]);
 
@@ -171,7 +153,7 @@ export function SiteHeader({ className }: { className?: string }) {
 
         <div className="hidden md:absolute md:left-1/2 md:-translate-x-1/2 md:flex">
           <button
-            onClick={() => setSearchOpen(true)}
+            onClick={handleOpenSearch}
             className="flex h-9 w-sm items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 text-muted-foreground transition-colors hover:bg-muted cursor-pointer md:text-base"
           >
             <div className="flex items-center gap-2">
@@ -187,7 +169,7 @@ export function SiteHeader({ className }: { className?: string }) {
         <div className="flex items-center gap-1">
           <div className="md:hidden">
             <button
-              onClick={() => setSearchOpen(true)}
+              onClick={handleOpenSearch}
               className="flex h-9 w-9 items-center justify-center rounded-lg transition-colors hover:bg-muted cursor-pointer"
             >
               <Search className="h-5 w-5" />

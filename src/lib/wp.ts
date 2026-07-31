@@ -53,14 +53,14 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
-export async function idbGet(key: string): Promise<any> {
+export async function idbGet<T = unknown>(key: string): Promise<T | undefined> {
   try {
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, "readonly");
       const store = tx.objectStore(STORE_NAME);
       const request = store.get(key);
-      request.onsuccess = () => resolve(request.result);
+      request.onsuccess = () => resolve(request.result as T);
       request.onerror = () => reject(request.error);
     });
   } catch (err) {
@@ -69,7 +69,7 @@ export async function idbGet(key: string): Promise<any> {
   }
 }
 
-export async function idbSet(key: string, value: any): Promise<void> {
+export async function idbSet(key: string, value: unknown): Promise<void> {
   try {
     const db = await openDB();
     return new Promise((resolve, reject) => {
@@ -90,7 +90,7 @@ export async function getCategoryId(slug: string): Promise<number | null> {
   const cacheKey = `category_id_${slug}`;
   // 1. Try to get from IndexedDB (Client only)
   if (typeof window !== 'undefined') {
-    const cachedId = await idbGet(cacheKey);
+    const cachedId = await idbGet<number>(cacheKey);
     if (cachedId) {
       return cachedId;
     }
@@ -119,13 +119,29 @@ export async function getCategoryId(slug: string): Promise<number | null> {
 }
 
 function decodeHtmlEntities(text: string): string {
-  if (typeof document === 'undefined') return text;
-  const textArea = document.createElement('textarea');
-  textArea.innerHTML = text;
-  return textArea.value;
+  if (!text) return "";
+  const entities: Record<string, string> = {
+    "&amp;": "&",
+    "&lt;": "<",
+    "&gt;": ">",
+    "&quot;": '"',
+    "&#039;": "'",
+    "&#39;": "'",
+    "&apos;": "'",
+    "&nbsp;": " ",
+  };
+  return text.replace(/&[#a-z0-9]+;/gi, (match) => {
+    if (entities[match.toLowerCase()]) return entities[match.toLowerCase()];
+    const numMatch = match.match(/&#(\d+);/);
+    if (numMatch) return String.fromCharCode(parseInt(numMatch[1], 10));
+    const hexMatch = match.match(/&#x([0-9a-f]+);/i);
+    if (hexMatch) return String.fromCharCode(parseInt(hexMatch[1], 16));
+    return match;
+  });
 }
 
 // Mapping WP Post to Series interface
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapWpPostToSeries(post: any): Series {
   const htmlContent = post.content?.rendered || post.content || "";
   const titleStr = post.title?.rendered || post.title || "Unknown Title";
@@ -198,14 +214,14 @@ function mapWpPostToSeries(post: any): Series {
     try {
       const metaJson = JSON.parse(decodeHtmlEntities(metaMatch[1]));
       if (metaJson && metaJson.chapters && Array.isArray(metaJson.chapters)) {
-        metaJson.chapters.forEach((chData: any[]) => {
+        metaJson.chapters.forEach((chData: (string | number)[]) => {
           // "[0] postId", "[1] chapterNumber", "[2] chapterTitle", "[3] slug", "[4] createdAt"
           if (chData.length >= 5) {
             chapters.push({
               id: String(chData[0]),
-              number: parseFloat(chData[1]),
-              title: chData[2],
-              publishedAt: chData[4],
+              number: typeof chData[1] === "number" ? chData[1] : parseFloat(String(chData[1])),
+              title: String(chData[2]),
+              publishedAt: String(chData[4]),
               wordCount: 0,
               content: ""
             });
@@ -293,7 +309,7 @@ export async function searchSeries(
 
     let url = `https://public-api.wordpress.com/rest/v1.1/sites/${SITE.ID}/posts?fields=found,ID,title,modified,content&number=${perPage}&page=${page}&${orderByParam}${orderParam}`;
 
-    let categorySlugs = [];
+    const categorySlugs: string[] = [];
     if (filters?.media) categorySlugs.push(...filters.media);
     if (filters?.status) categorySlugs.push(...filters.status);
     if (filters?.genres) categorySlugs.push(...filters.genres);
@@ -303,7 +319,7 @@ export async function searchSeries(
       url += `&category=${c}`;
     });
 
-    let tagSlugs = [];
+    const tagSlugs: string[] = [];
     if (filters?.tags) tagSlugs.push(...filters.tags);
     if (filters?.releaseYear) tagSlugs.push(...filters.releaseYear);
     if (filters?.author) tagSlugs.push(...filters.author);
@@ -313,7 +329,7 @@ export async function searchSeries(
       url += `&tag=${t}`;
     });
 
-    let searchQuery = query || "";
+    const searchQuery = query || "";
     if (searchQuery.trim()) {
       url += `&search=${encodeURIComponent(searchQuery.trim())}`;
     }
@@ -365,8 +381,9 @@ export async function getPopularSeries(): Promise<Series[]> {
         if (json && json.posts && Array.isArray(json.posts)) {
           return json.posts.map(mapWpPostToSeries);
         }
-      } catch (parseError) {
+      } catch {
         // Fallback: If JSON is invalid due to unescaped inner quotes, use a regex parser
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const posts: any[] = [];
         // Use greedy match [\s\S]* so it finds the LAST bracket instead of stopping at an inner bracket like ]}}
         const postsMatch = decoded.match(/"posts"\s*:\s*\[([\s\S]*)\](?:\s*,\s*"meta"|\s*\})/);
@@ -401,3 +418,29 @@ export async function getPopularSeries(): Promise<Series[]> {
   }
 }
 
+export function buildChapterUrl(
+  series: { id: string | number; title?: string; slug?: string; seriesUrl?: string },
+  chapter: { id: string | number; number: number | string }
+): string {
+  let seriesSlug = "";
+
+  if (series.seriesUrl) {
+    seriesSlug = series.seriesUrl.replace(/^\/series\//, "").replace(/^\//, "");
+  } else if (series.slug) {
+    seriesSlug = series.slug;
+  } else {
+    const rawId = series.id ? series.id.toString() : "";
+    if (/^\d+-[a-z0-9-]+$/i.test(rawId)) {
+      seriesSlug = rawId;
+    } else {
+      const titleStr = series.title || "";
+      const kebabTitle = titleStr
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+      seriesSlug = kebabTitle ? `${rawId}-${kebabTitle}` : rawId;
+    }
+  }
+
+  return `/ch/${seriesSlug}-chapter-${chapter.number}-${chapter.id}`;
+}

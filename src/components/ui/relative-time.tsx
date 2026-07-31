@@ -62,13 +62,15 @@ export function RelativeTime({
   }, [dateValue]);
 
   useEffect(() => {
-    setIsMounted(true);
-    const updateTime = () => setNow(Date.now());
-    updateTime(); // Set initial client time
+    queueMicrotask(() => {
+      setIsMounted(true);
+      setNow(Date.now());
+    });
 
     if (!refreshIntervalMs || refreshIntervalMs <= 0) {
       return;
     }
+    const updateTime = () => setNow(Date.now());
     const intervalId = setInterval(updateTime, refreshIntervalMs);
     return () => {
       clearInterval(intervalId);

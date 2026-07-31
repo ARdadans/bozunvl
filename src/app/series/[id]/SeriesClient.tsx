@@ -2,9 +2,8 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
-  ArrowLeft,
-  BookOpen,
   ChevronDown,
   ChevronRight,
   ChevronLeft,
@@ -25,7 +24,7 @@ import {
   ShareIcon
 } from "@/components/icons";
 import { toast } from "sonner";
-import { Series } from "@/lib/wp";
+import { Series, Chapter, buildChapterUrl } from "@/lib/wp";
 import { toggleBookmark, isBookmarked as checkBookmark, getSeriesProgress, saveSeriesProgress, resetSeriesProgress } from "@/lib/indexeddb";
 
 const formatChapterTitle = (seriesTitle: string, chapterTitle: string) => {
@@ -55,7 +54,9 @@ export default function SeriesClient({ series }: { series: Series }) {
   const [lastReadNumber, setLastReadNumber] = useState<number | null>(null);
 
   useEffect(() => {
-    setCurrentPage(1);
+    queueMicrotask(() => {
+      setCurrentPage(1);
+    });
   }, [chapterSearch, sortOrder]);
 
   useEffect(() => {
@@ -105,7 +106,7 @@ export default function SeriesClient({ series }: { series: Series }) {
     }
   };
 
-  const handleChapterClick = (chapter: any) => {
+  const handleChapterClick = (chapter: Chapter) => {
     if (lastReadNumber === null || chapter.number > lastReadNumber) {
       setLastReadNumber(chapter.number);
       saveSeriesProgress({
@@ -185,14 +186,14 @@ export default function SeriesClient({ series }: { series: Series }) {
           <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-start">
             <div className="w-full md:w-[240px] flex-shrink-0 flex justify-center md:block">
               <div className="w-[200px] md:w-[240px] aspect-[2/3] bg-[var(--color-surface)] rounded-[var(--radius)] overflow-hidden relative border border-[var(--color-border)] shadow-md">
-                <img
+                <Image
                   alt={series.title}
                   className="w-full h-full object-cover"
-                  height="900"
-                  loading="lazy"
+                  height={900}
+                  width={600}
                   src={series.cover}
                   title={`Cover ${series.title}`}
-                  width="600"
+                  unoptimized
                 />
               </div>
             </div>
@@ -518,7 +519,7 @@ export default function SeriesClient({ series }: { series: Series }) {
                 {firstChapter && (
                   <Link
                     className="bg-[var(--color-primary)] text-[var(--color-background)] hover:bg-[var(--color-primary-hover)] font-bold py-2.5 px-5 rounded-[var(--radius)] text-xs md:text-sm flex items-center gap-2 transition-colors cursor-pointer shadow"
-                    href={`/series/${series.id}/ch/${firstChapter.number}-${firstChapter.id}`}
+                    href={buildChapterUrl(series, firstChapter)}
                     id="start-reading-btn"
                   >
                     <Play className="w-4 h-4 fill-current" /> Start Reading
@@ -738,7 +739,7 @@ export default function SeriesClient({ series }: { series: Series }) {
                 paginatedChapters.map((chapter) => (
                   <Link
                     key={chapter.id}
-                    href={`/series/${series.id}/ch/${chapter.number}-${chapter.id}`}
+                    href={buildChapterUrl(series, chapter)}
                     onClick={() => handleChapterClick(chapter)}
                     className={cn(
                       "flex items-center justify-between gap-4 px-5 py-3.5 transition-colors group border-b border-[var(--color-border)] last:border-b-0",

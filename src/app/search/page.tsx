@@ -11,10 +11,6 @@ export const metadata: Metadata = {
   twitter: null,
 };
 
-type Props = {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-};
-
-export default function SearchPage({ searchParams }: Props) {
+export default function SearchPage() {
   return <SearchCSR />;
 }

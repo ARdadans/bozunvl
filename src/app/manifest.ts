@@ -1,6 +1,8 @@
 import { MetadataRoute } from 'next'
 import { BLOG } from '@/config/site'
 
+export const dynamic = "force-static";
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: BLOG.TITLE,

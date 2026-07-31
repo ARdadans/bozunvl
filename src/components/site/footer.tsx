@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { BLOG } from "@/config/site";
 import { usePathname } from "next/navigation";
 

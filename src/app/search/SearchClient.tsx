@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
@@ -86,7 +86,7 @@ function SearchContent() {
 
     try {
       const fetchTaxonomy = async (type: 'categories' | 'tags') => {
-        let allItems: any[] = [];
+        let allItems: Array<{ slug: string }> = [];
         let page = 1;
         let totalFound = Infinity;
         let fetchedCount = 0;
@@ -217,7 +217,7 @@ function SearchContent() {
 
       if (appliedQuery.trim() && results.length > 0 && typeof window !== 'undefined') {
         try {
-          const currentSearches = await idbGet("recent_searches") || [];
+          const currentSearches = (await idbGet<string[]>("recent_searches")) || [];
           const queryTrimmed = appliedQuery.trim();
           let updatedSearches = currentSearches.filter((q: string) => q !== queryTrimmed);
           updatedSearches.unshift(queryTrimmed);
@@ -521,7 +521,7 @@ function SearchContent() {
                 <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
                 <h3 className="font-heading text-lg font-semibold mb-2">No results found</h3>
                 <p className="text-muted-foreground text-sm">
-                  We couldn't find any series matching your filters. Try using different keywords or resetting filters.
+                  We couldn&apos;t find any series matching your filters. Try using different keywords or resetting filters.
                 </p>
                 <Button variant="outline" className="mt-6" onClick={handleResetFilters}>
                   Clear Search & Filters

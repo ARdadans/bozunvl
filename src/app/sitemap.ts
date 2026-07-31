@@ -1,5 +1,7 @@
-﻿import { MetadataRoute } from 'next';
+import { MetadataRoute } from 'next';
 import { SITE } from '@/config/site';
+
+export const dynamic = "force-static";
 
 type WPPost = {
   ID: number;

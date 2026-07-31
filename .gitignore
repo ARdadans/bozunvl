@@ -3,3 +3,4 @@ node_modules
 .vscode/
 .kilo/
 .env.local
+out/

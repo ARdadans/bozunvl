@@ -1,6 +1,7 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Series } from "@/lib/wp";
 import { RelativeTime } from "@/components/ui/relative-time";
 
@@ -9,15 +10,18 @@ interface SeriesCardProps {
   index?: number;
 }
 
-export function SeriesCard({ series, index = 0 }: SeriesCardProps) {
+export function SeriesCard({ series }: SeriesCardProps) {
   return (
     <div>
       <Link href={`/series/${series.id}`}>
         <div className="group flex flex-col h-full overflow-hidden">
           <div className="relative aspect-[2/3] overflow-hidden">
-            <img
+            <Image
               src={series.cover}
               alt={series.title}
+              width={240}
+              height={360}
+              unoptimized
               className="h-full w-full object-cover rounded-sm"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent opacity-0 transition-opacity duration-300 ease-out group-hover:opacity-100" />

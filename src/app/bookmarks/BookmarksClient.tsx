@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { getBookmarks, Bookmark } from "@/lib/indexeddb";
 import { ArrowLeft } from "lucide-react";
 
@@ -54,11 +55,13 @@ export default function BookmarksClient() {
                 className="group flex flex-col gap-3 relative bg-[var(--color-surface)] rounded-[var(--radius)] overflow-hidden border border-[var(--color-border)] hover:border-[var(--color-primary)] transition-all shadow-sm hover:shadow-md h-full"
               >
                 <div className="aspect-[2/3] relative overflow-hidden bg-[var(--color-muted)]">
-                  <img 
+                  <Image 
                     src={bookmark.cover} 
                     alt={bookmark.title} 
+                    width={200}
+                    height={300}
+                    unoptimized
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    loading="lazy"
                   />
                 </div>
                 <div className="px-3 pb-3 flex-grow">

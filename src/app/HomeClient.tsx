@@ -19,14 +19,14 @@ export default function Home({ initialSeries = [] }: { initialSeries?: Series[] 
   const [isPopularLoading, setIsPopularLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(initialSeries.length === SITE.PER_PAGE);
+  const [hasMore, setHasMore] = useState(initialSeries.length > 0 ? initialSeries.length === SITE.PER_PAGE : true);
 
   useEffect(() => {
     let isMounted = true;
     const fetchPopular = async () => {
       setIsPopularLoading(true);
       const cacheKey = "popular_series_cache";
-      const cached = await idbGet(cacheKey);
+      const cached = await idbGet<{ data: Series[]; timestamp: number }>(cacheKey);
       
       if (cached && cached.timestamp && Date.now() - cached.timestamp < SITE.POPULAR_POST_ID_TTL_SECONDS * 1000) {
         if (isMounted) {
@@ -56,9 +56,25 @@ export default function Home({ initialSeries = [] }: { initialSeries?: Series[] 
       if (isMounted) setIsPopularLoading(false);
     };
 
+    const fetchInitial = async () => {
+      if (initialSeries.length === 0) {
+        setIsLoading(true);
+        const categoryId = await getCategoryId("type-series");
+        if (categoryId && isMounted) {
+          const series = await getSeriesByCategory(categoryId, 1, SITE.PER_PAGE);
+          if (isMounted) {
+            setSeriesList(series);
+            setHasMore(series.length === SITE.PER_PAGE);
+          }
+        }
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
     fetchPopular();
+    fetchInitial();
     return () => { isMounted = false; };
-  }, []);
+  }, [initialSeries.length]);
 
   const loadMore = async () => {
     setIsLoading(true);

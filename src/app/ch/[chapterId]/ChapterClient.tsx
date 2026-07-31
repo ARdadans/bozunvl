@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Chapter } from "@/lib/wp";
+import { Chapter, buildChapterUrl } from "@/lib/wp";
 import { SITE } from "@/config/site";
 import { Reader } from "@/components/chapter/reader";
 import Link from "next/link";
@@ -11,9 +11,12 @@ import { saveSeriesProgress } from "@/lib/indexeddb";
 interface ChapterPageData {
   seriesId: string;
   seriesTitle: string;
+  seriesUrl: string;
   chapter: Chapter;
-  prevChapterId?: string;
-  nextChapterId?: string;
+  prevChapterUrl?: string;
+  nextChapterUrl?: string;
+  prevChapterNum?: number;
+  nextChapterNum?: number;
 }
 
 export default function ChapterClient({ id, chapterId }: { id: string; chapterId: string }) {
@@ -28,7 +31,7 @@ export default function ChapterClient({ id, chapterId }: { id: string; chapterId
         setLoading(true);
 
         const parts = chapterId.split("-");
-        const numericId = parts.length > 1 ? parts[parts.length - 1] : parts[0];
+        const numericId = parts.length > 0 ? parts[parts.length - 1] : chapterId;
 
         // Fetch chapter content directly, completely independent of series API
         const url = `${SITE.API_REST}/${SITE.ID}/posts/${numericId}?_fields=id,title,content,modified`;
@@ -38,6 +41,7 @@ export default function ChapterClient({ id, chapterId }: { id: string; chapterId
         const chapterContent = jsonRes.content?.rendered || "";
 
         // Extract metadata from <pre id="chapter-meta">
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let meta: any = {};
         const metaMatch = chapterContent.match(/<pre[^>]*id=["']chapter-meta["'][^>]*>([\s\S]*?)<\/pre>/i);
         if (metaMatch && metaMatch[1]) {
@@ -51,7 +55,7 @@ export default function ChapterClient({ id, chapterId }: { id: string; chapterId
         }
 
         const seriesTitle = meta.series || "Unknown Series";
-        const chapterNumber = meta.chapter || numericId;
+        const chapterNumber = meta.chapter !== undefined ? meta.chapter : numericId;
 
         // Clean title
         const rawTitle = jsonRes.title?.rendered || `Chapter ${chapterNumber}`;
@@ -66,13 +70,43 @@ export default function ChapterClient({ id, chapterId }: { id: string; chapterId
           cleanTitle = decodedRawTitle;
         }
 
-        const nextChapterIdStr = meta.next ? `${meta.next.chapter}-${meta.next.postId}` : undefined;
-        const prevChapterIdStr = meta.previous ? `${meta.previous.chapter}-${meta.previous.postId}` : undefined;
+        // Determine canonical series info for URL path
+        const seriesInfo = {
+          id: meta.seriesId || id || "series",
+          title: seriesTitle,
+          seriesUrl: meta.seriesUrl
+        };
+
+        const canonicalPath = buildChapterUrl(seriesInfo, { id: numericId, number: chapterNumber });
+
+        // Auto-correct browser URL path client-side without page reload
+        if (typeof window !== "undefined") {
+          if (window.location.pathname !== canonicalPath) {
+            window.history.replaceState(null, "", canonicalPath);
+          }
+        }
+
+        const prevChapterUrl = meta.previous
+          ? buildChapterUrl(seriesInfo, { id: meta.previous.postId, number: meta.previous.chapter })
+          : undefined;
+
+        const nextChapterUrl = meta.next
+          ? buildChapterUrl(seriesInfo, { id: meta.next.postId, number: meta.next.chapter })
+          : undefined;
+
+        let seriesUrl = meta.seriesUrl;
+        if (!seriesUrl) {
+          const seriesSlug = meta.seriesId
+            ? `${meta.seriesId}-${seriesTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`
+            : id;
+          seriesUrl = `/series/${seriesSlug}`;
+        }
 
         if (isMounted) {
           setData({
-            seriesId: id, // using the slug from the URL
+            seriesId: meta.seriesId ? String(meta.seriesId) : id,
             seriesTitle: seriesTitle,
+            seriesUrl: seriesUrl,
             chapter: {
               id: numericId,
               number: Number(chapterNumber),
@@ -81,13 +115,15 @@ export default function ChapterClient({ id, chapterId }: { id: string; chapterId
               wordCount: 0,
               content: chapterContent
             },
-            prevChapterId: prevChapterIdStr,
-            nextChapterId: nextChapterIdStr
+            prevChapterUrl,
+            nextChapterUrl,
+            prevChapterNum: meta.previous ? Number(meta.previous.chapter) : undefined,
+            nextChapterNum: meta.next ? Number(meta.next.chapter) : undefined,
           });
           setLoading(false);
           
           saveSeriesProgress({
-            seriesId: id,
+            seriesId: meta.seriesId ? String(meta.seriesId) : id,
             chapterId: numericId,
             number: Number(chapterNumber)
           });
@@ -135,10 +171,13 @@ export default function ChapterClient({ id, chapterId }: { id: string; chapterId
     <Reader
       seriesId={data.seriesId}
       seriesTitle={data.seriesTitle}
+      seriesUrl={data.seriesUrl}
       chapter={data.chapter}
-      totalChapters={0} // Independent fetch doesn't know total chapters
-      prevChapterId={data.prevChapterId}
-      nextChapterId={data.nextChapterId}
+      prevChapterUrl={data.prevChapterUrl}
+      nextChapterUrl={data.nextChapterUrl}
+      prevChapterNum={data.prevChapterNum}
+      nextChapterNum={data.nextChapterNum}
     />
   );
 }
+

@@ -1,12 +1,13 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, BookOpen, Clock, Star, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Series } from "@/lib/wp";
+import { Series, buildChapterUrl } from "@/lib/wp";
 
 interface SeriesHeaderProps {
   series: Series;
@@ -14,6 +15,8 @@ interface SeriesHeaderProps {
 
 export function SeriesHeader({ series }: SeriesHeaderProps) {
   const router = useRouter();
+  const firstChapter = series.chapters[0];
+  const firstChapterUrl = firstChapter ? buildChapterUrl(series, firstChapter) : "#";
 
   return (
     <div className="relative">
@@ -23,9 +26,12 @@ export function SeriesHeader({ series }: SeriesHeaderProps) {
         <div className="flex flex-col gap-6 md:flex-row">
           <div className="shrink-0">
             <Card className="overflow-hidden border-2 p-1">
-              <img
+              <Image
                 src={series.cover}
                 alt={series.title}
+                width={224}
+                height={320}
+                unoptimized
                 className="h-64 w-48 object-cover md:h-80 md:w-56"
               />
             </Card>
@@ -51,12 +57,12 @@ export function SeriesHeader({ series }: SeriesHeaderProps) {
                 <User className="h-4 w-4" />
                 {series.author}
               </span>
-              <span>â€¢</span>
+              <span>•</span>
               <span className="flex items-center gap-1">
                 <Star className="h-4 w-4 fill-primary text-primary" />
                 {series.rating}
               </span>
-              <span>â€¢</span>
+              <span>•</span>
               <span className="flex items-center gap-1">
                 <Clock className="h-4 w-4" />
                 Updated {series.updatedAt}
@@ -77,7 +83,7 @@ export function SeriesHeader({ series }: SeriesHeaderProps) {
             </p>
 
             <div className="flex flex-wrap gap-3">
-              <Button size="lg" className="gap-2" onClick={() => router.push(`/series/${series.id}/ch/${series.chapters[0]?.id}`)}>
+              <Button size="lg" className="gap-2" onClick={() => router.push(firstChapterUrl)}>
                 <BookOpen className="h-4 w-4" />
                 Start Reading
               </Button>

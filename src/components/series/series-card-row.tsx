@@ -1,6 +1,7 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Series } from "@/lib/wp";
 import { RelativeTime } from "@/components/ui/relative-time";
 
@@ -21,15 +22,18 @@ export function SeriesCardRow({ series }: SeriesCardRowProps) {
     series.author,
     series.status,
     series.year
-  ].filter(Boolean).join(" â€¢ ");
+  ].filter(Boolean).join(" • ");
 
   return (
     <Link href={`/series/${series.id}`} className="group block h-full">
       <div className="flex gap-3 h-full overflow-hidden p-2 transition-colors hover:bg-muted/40">
         <div className="relative w-16 md:w-20 shrink-0 aspect-[2/3] overflow-hidden rounded-sm">
-          <img
+          <Image
             src={series.cover}
             alt={series.title}
+            width={160}
+            height={240}
+            unoptimized
             className="h-full w-full object-cover"
           />
         </div>

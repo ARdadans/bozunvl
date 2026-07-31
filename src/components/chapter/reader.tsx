@@ -4,21 +4,33 @@ import { useState } from "react";
 import styles from "./reader.module.css";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, BookOpen, Settings, Home, List, Info } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Chapter } from "@/lib/wp";
 import { toast } from "sonner";
 
 interface ReaderProps {
   seriesId: string;
   seriesTitle: string;
+  seriesUrl?: string;
   chapter: Chapter;
-  totalChapters: number;
-  prevChapterId?: string;
-  nextChapterId?: string;
+  prevChapterUrl?: string;
+  nextChapterUrl?: string;
+  prevChapterNum?: number;
+  nextChapterNum?: number;
 }
 
-export function Reader({ seriesId, seriesTitle, chapter, totalChapters, prevChapterId, nextChapterId }: ReaderProps) {
+export function Reader({
+  seriesId,
+  seriesTitle,
+  seriesUrl,
+  chapter,
+  prevChapterUrl,
+  nextChapterUrl,
+  prevChapterNum,
+  nextChapterNum,
+}: ReaderProps) {
   const [showToolbars, setShowToolbars] = useState(true);
+
+  const targetSeriesUrl = seriesUrl || `/series/${seriesId}`;
 
   const handleContainerClick = (e: React.MouseEvent) => {
     // Abaikan klik jika user sedang melakukan highlight/seleksi teks
@@ -43,8 +55,8 @@ export function Reader({ seriesId, seriesTitle, chapter, totalChapters, prevChap
         id="chapter-toolbar"
         onClick={(e) => e.stopPropagation()}
       >
-        {prevChapterId ? (
-          <Link href={`/series/${seriesId}/ch/${prevChapterId}`} aria-label="Previous Chapter" className="flex h-11 w-11 items-center justify-center text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-foreground" id="chapter-prev-btn" title="Previous Chapter">
+        {prevChapterUrl ? (
+          <Link href={prevChapterUrl} aria-label="Previous Chapter" className="flex h-11 w-11 items-center justify-center text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-foreground" id="chapter-prev-btn" title="Previous Chapter">
             <ChevronLeft className="h-4 w-4" />
           </Link>
         ) : (
@@ -55,8 +67,8 @@ export function Reader({ seriesId, seriesTitle, chapter, totalChapters, prevChap
         <button aria-label="Chapter List" className="max-w-32 truncate bg-transparent border-none px-3 text-xs font-semibold text-muted-foreground cursor-pointer font-sans transition-colors hover:text-primary" id="chapter-toolbar-ch" title="Chapter List" type="button">
           Ch. {chapter.number}
         </button>
-        {nextChapterId ? (
-          <Link href={`/series/${seriesId}/ch/${nextChapterId}`} aria-label="Next Chapter" className="flex h-11 w-11 items-center justify-center text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-foreground" id="chapter-next-btn" title="Next Chapter">
+        {nextChapterUrl ? (
+          <Link href={nextChapterUrl} aria-label="Next Chapter" className="flex h-11 w-11 items-center justify-center text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-foreground" id="chapter-next-btn" title="Next Chapter">
             <ChevronRight className="h-4 w-4" />
           </Link>
         ) : (
@@ -75,10 +87,10 @@ export function Reader({ seriesId, seriesTitle, chapter, totalChapters, prevChap
         <Link aria-label="Home" className="flex h-11 w-11 items-center justify-center text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-foreground" href="/" id="chapter-home-btn" title="Home">
           <Home className="h-4 w-4" />
         </Link>
-        <Link aria-label="Series" className="flex h-11 w-11 items-center justify-center text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-foreground" href={`/series/${seriesId}`} id="chapter-series-btn" title="Series">
+        <Link aria-label="Series" className="flex h-11 w-11 items-center justify-center text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-foreground" href={targetSeriesUrl} id="chapter-series-btn" title="Series">
           <BookOpen className="h-4 w-4" />
         </Link>
-        <Link aria-label="Chapter List" className="flex h-11 w-11 items-center justify-center text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-foreground" href={`/series/${seriesId}#chapter-list`} id="chapter-side-toc-btn" title="Chapter List">
+        <Link aria-label="Chapter List" className="flex h-11 w-11 items-center justify-center text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-foreground" href={`${targetSeriesUrl}#chapter-list`} id="chapter-side-toc-btn" title="Chapter List">
           <List className="h-4 w-4" />
         </Link>
         <button onClick={() => toast("Coming soon")} aria-label="Info" className="flex h-11 w-11 items-center justify-center text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-foreground" id="chapter-info-btn" title="Info">
@@ -98,7 +110,7 @@ export function Reader({ seriesId, seriesTitle, chapter, totalChapters, prevChap
 
           <div className="space-y-3 pt-8" id="chapter-nav">
             <div className="group flex items-center justify-between gap-3 rounded-lg bg-card px-4 py-3 transition-colors hover:bg-accent border border-border/40">
-              <Link className="flex min-w-0 flex-1 items-center gap-3" href={`/series/${seriesId}`} id="chapter-series-home" title={seriesTitle}>
+              <Link className="flex min-w-0 flex-1 items-center gap-3" href={targetSeriesUrl} id="chapter-series-home" title={seriesTitle}>
                 <BookOpen className="h-5 w-5 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
                 <div className="flex min-w-0 flex-col gap-0.5">
                   <span className="block w-full truncate overflow-hidden text-ellipsis whitespace-nowrap text-sm font-semibold text-foreground transition-colors group-hover:text-primary" id="nav-series-title">
@@ -114,14 +126,18 @@ export function Reader({ seriesId, seriesTitle, chapter, totalChapters, prevChap
               </Link>
             </div>
             <div className="flex gap-2">
-              {prevChapterId ? (
-                <Link className="group flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-card px-3 py-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-primary border border-border/40" href={`/series/${seriesId}/ch/${prevChapterId}`} id="nav-prev">
+              {prevChapterUrl ? (
+                <Link className="group flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-card px-3 py-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-primary border border-border/40" href={prevChapterUrl} id="nav-prev">
                   <ChevronLeft className="h-4 w-4" />
                   <span>Prev</span>
-                  <span className="text-muted-foreground transition-colors group-hover:text-primary">•</span>
-                  <span className="text-muted-foreground transition-colors group-hover:text-primary" id="nav-prev-ch">
-                    Ch. {prevChapterId.split('-')[0]}
-                  </span>
+                  {prevChapterNum !== undefined && (
+                    <>
+                      <span className="text-muted-foreground transition-colors group-hover:text-primary">•</span>
+                      <span className="text-muted-foreground transition-colors group-hover:text-primary" id="nav-prev-ch">
+                        Ch. {prevChapterNum}
+                      </span>
+                    </>
+                  )}
                 </Link>
               ) : (
                 <div className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-card/30 px-3 py-3 text-sm font-medium text-muted-foreground border border-border/20 cursor-not-allowed">
@@ -129,13 +145,17 @@ export function Reader({ seriesId, seriesTitle, chapter, totalChapters, prevChap
                   <span>Prev</span>
                 </div>
               )}
-              {nextChapterId ? (
-                <Link className="group flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-card px-3 py-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-primary border border-border/40" href={`/series/${seriesId}/ch/${nextChapterId}`} id="nav-next">
+              {nextChapterUrl ? (
+                <Link className="group flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-card px-3 py-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-primary border border-border/40" href={nextChapterUrl} id="nav-next">
                   <span>Next</span>
-                  <span className="text-muted-foreground transition-colors group-hover:text-primary">•</span>
-                  <span className="text-muted-foreground transition-colors group-hover:text-primary" id="nav-next-ch">
-                    Ch. {nextChapterId.split('-')[0]}
-                  </span>
+                  {nextChapterNum !== undefined && (
+                    <>
+                      <span className="text-muted-foreground transition-colors group-hover:text-primary">•</span>
+                      <span className="text-muted-foreground transition-colors group-hover:text-primary" id="nav-next-ch">
+                        Ch. {nextChapterNum}
+                      </span>
+                    </>
+                  )}
                   <ChevronRight className="h-4 w-4" />
                 </Link>
               ) : (
@@ -151,3 +171,4 @@ export function Reader({ seriesId, seriesTitle, chapter, totalChapters, prevChap
     </div>
   );
 }
+

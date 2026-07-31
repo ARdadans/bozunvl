@@ -1,4 +1,4 @@
-﻿import { getSeriesById } from "@/lib/wp";
+import { getSeriesById } from "@/lib/wp";
 import SeriesClient from "./SeriesClient";
 import { SITE, BLOG } from "@/config/site";
 import Link from "next/link";
@@ -7,7 +7,7 @@ import { Metadata } from "next";
 export async function generateStaticParams() {
   try {
     // 1. Get Category ID for "series"
-    const catUrl = `${SITE.API_REST}/${SITE.ID}/categories?slug=series&_fields=id`;
+    const catUrl = `${SITE.API_REST}/${SITE.ID}/categories?slug=type-series&_fields=id`;
     const catRes = await fetch(catUrl);
     if (!catRes.ok) return [];
     const catData = await catRes.json();
@@ -15,14 +15,29 @@ export async function generateStaticParams() {
     if (!catData || catData.length === 0) return [];
     const categoryId = catData[0].id;
 
-    // 2. Fetch posts
-    const url = `${SITE.API_REST}/${SITE.ID}/posts?categories=${categoryId}&orderby=modified&order=desc&per_page=100&_fields=id,title`;
-    const res = await fetch(url);
-    if (!res.ok) return [];
-    const data = await res.json();
+    // 2. Fetch all posts
+    let allPosts: Array<{ id: number | string; title?: { rendered?: string } }> = [];
+    let page = 1;
+    let hasMore = true;
 
-    if (Array.isArray(data)) {
-      return data.map((post: any) => {
+    while (hasMore) {
+      const url = `${SITE.API_REST}/${SITE.ID}/posts?categories=${categoryId}&orderby=modified&order=desc&per_page=100&page=${page}&_fields=id,title`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        break;
+      }
+      
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        allPosts = [...allPosts, ...data];
+        page++;
+      } else {
+        hasMore = false;
+      }
+    }
+
+    if (allPosts.length > 0) {
+      return allPosts.map((post) => {
         const title = post.title?.rendered || "";
         const kebabTitle = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
         const seriesId = `${post.id}-${kebabTitle}`;

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { FileText } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Chapter } from "@/lib/wp";
+import { Chapter, buildChapterUrl } from "@/lib/wp";
 import { RelativeTime } from "@/components/ui/relative-time";
 import { cn } from "@/lib/utils";
 
@@ -19,7 +19,7 @@ export function ChapterList({ seriesId, chapters }: ChapterListProps) {
       <div className="grid gap-3">
         {chapters.map((chapter) => (
           <div key={chapter.id}>
-            <Link href={`/series/${seriesId}/ch/${chapter.id}`}>
+            <Link href={buildChapterUrl({ id: seriesId }, chapter)}>
               <Card
                 className={cn(
                   "group flex items-center justify-between p-4 transition-all hover:border-primary/50 hover:shadow-md",
