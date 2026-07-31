@@ -1,8 +1,5 @@
 {
   "rewrites": [
-    {
-      "source": "/ch/:path*",
-      "destination": "/ch/index.html"
-    }
+    { "source": "/series/:path*", "destination": "/series/index.html" }
   ]
 }

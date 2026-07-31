@@ -442,5 +442,5 @@ export function buildChapterUrl(
     }
   }
 
-  return `/ch/${seriesSlug}-chapter-${chapter.number}-${chapter.id}`;
+  return `/ch?id=${seriesSlug}-chapter-${chapter.number}-${chapter.id}`;
 }

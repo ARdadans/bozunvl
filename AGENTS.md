@@ -23,9 +23,9 @@ This project uses Next.js 16 (App Router) configured for full **Static Export (`
 - **Unoptimized Remote Images**: Remote images from WordPress must be handled with `images: { unoptimized: true }` or standard `<img>` / unoptimized `<Image>` tags.
 
 ### Chapter Route & URL Formatting Rules
-- **Canonical Chapter URL**: Always format chapter URLs as `/ch/{series.id}-{series.title(kebabcase)}-chapter-{chapter.number}-{chapterpost.id}` using `buildChapterUrl()` from `src/lib/wp.ts`.
-- **No Build-Time Chapter Page Generation**: `generateStaticParams()` in `src/app/ch/[chapterId]/page.tsx` MUST return a single static placeholder `[{ chapterId: "index" }]` without executing WordPress API fetches during build time.
-- **Client-Side Auto-Correction**: Chapter pages in browser extract `postId` from the end of the path, fetch the post & `<pre id="chapter-meta">` JSON via client-side fetch, construct the canonical path, and update browser URL via `window.history.replaceState()`.
+- **Canonical Chapter URL**: Always format chapter URLs as `/ch?id={series.id}-{series.title(kebabcase)}-chapter-{chapter.number}-{chapterpost.id}` using `buildChapterUrl()` from `src/lib/wp.ts`.
+- **Pure Static Chapter Shell**: The chapter route is defined as a pure static page `src/app/ch/page.tsx`. It does not use server functions or path parameters.
+- **Client-Side Query Parameter & Auto-Correction**: `ChapterClient` in browser extracts `postId` from the `id` search parameter (`?id=...`), fetches the post & `<pre id="chapter-meta">` JSON via client-side fetch, constructs the canonical URL, and updates browser URL via `window.history.replaceState()`.
 
 ### Local Storage & State Management
 - **IndexedDB**: User state (bookmarks, reading progress, read chapter history) is stored in browser IndexedDB via `src/lib/indexeddb.ts`.

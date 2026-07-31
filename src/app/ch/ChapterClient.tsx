@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Chapter, buildChapterUrl } from "@/lib/wp";
 import { SITE } from "@/config/site";
 import { Reader } from "@/components/chapter/reader";
@@ -19,7 +20,10 @@ interface ChapterPageData {
   nextChapterNum?: number;
 }
 
-export default function ChapterClient({ id, chapterId }: { id: string; chapterId: string }) {
+export default function ChapterClient() {
+  const searchParams = useSearchParams();
+  const rawIdParam = searchParams.get("id");
+
   const [data, setData] = useState<ChapterPageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -30,23 +34,20 @@ export default function ChapterClient({ id, chapterId }: { id: string; chapterId
       try {
         setLoading(true);
 
-        let effectivePath = chapterId;
-        if (typeof window !== "undefined") {
-          const pathname = window.location.pathname;
-          const segments = pathname.split("/").filter(Boolean);
-          const chIndex = segments.indexOf("ch");
-          if (chIndex !== -1 && segments.length > chIndex + 1) {
-            const rawSegment = segments[chIndex + 1];
-            if (rawSegment && rawSegment !== "index") {
-              effectivePath = rawSegment;
-            }
-          }
+        let effectiveId = rawIdParam;
+        if (!effectiveId && typeof window !== "undefined") {
+          const urlParams = new URLSearchParams(window.location.search);
+          effectiveId = urlParams.get("id");
         }
 
-        const parts = effectivePath.split("-");
-        const numericId = parts.length > 0 ? parts[parts.length - 1] : effectivePath;
+        if (!effectiveId) {
+          throw new Error("No chapter ID provided");
+        }
 
-        if (!numericId || numericId === "index" || isNaN(Number(numericId))) {
+        const parts = effectiveId.split("-");
+        const numericId = parts.length > 0 ? parts[parts.length - 1] : effectiveId;
+
+        if (!numericId || isNaN(Number(numericId))) {
           throw new Error("Invalid chapter ID");
         }
 
@@ -63,10 +64,10 @@ export default function ChapterClient({ id, chapterId }: { id: string; chapterId
         const metaMatch = chapterContent.match(/<pre[^>]*id=["']chapter-meta["'][^>]*>([\s\S]*?)<\/pre>/i);
         if (metaMatch && metaMatch[1]) {
           try {
-            const textArea = document.createElement('textarea');
+            const textArea = document.createElement("textarea");
             textArea.innerHTML = metaMatch[1];
             meta = JSON.parse(textArea.value);
-          } catch(e) {
+          } catch (e) {
             console.error("Failed to parse chapter-meta", e);
           }
         }
@@ -76,30 +77,31 @@ export default function ChapterClient({ id, chapterId }: { id: string; chapterId
 
         // Clean title
         const rawTitle = jsonRes.title?.rendered || `Chapter ${chapterNumber}`;
-        const textAreaTitle = document.createElement('textarea');
+        const textAreaTitle = document.createElement("textarea");
         textAreaTitle.innerHTML = rawTitle;
         const decodedRawTitle = textAreaTitle.value;
-        
+
         // Remove "{Series Title} Ch. {Number}" prefix if it exists
-        const prefixRegex = new RegExp(`^${seriesTitle}\\s*Ch\\.?\\s*${chapterNumber}\\s*[-–—:]?\\s*`, 'i');
-        let cleanTitle = decodedRawTitle.replace(prefixRegex, '').trim();
+        const prefixRegex = new RegExp(`^${seriesTitle}\\s*Ch\\.?\\s*${chapterNumber}\\s*[-–—:]?\\s*`, "i");
+        let cleanTitle = decodedRawTitle.replace(prefixRegex, "").trim();
         if (!cleanTitle) {
           cleanTitle = decodedRawTitle;
         }
 
         // Determine canonical series info for URL path
         const seriesInfo = {
-          id: meta.seriesId || id || "series",
+          id: meta.seriesId || "series",
           title: seriesTitle,
-          seriesUrl: meta.seriesUrl
+          seriesUrl: meta.seriesUrl,
         };
 
-        const canonicalPath = buildChapterUrl(seriesInfo, { id: numericId, number: chapterNumber });
+        const canonicalUrl = buildChapterUrl(seriesInfo, { id: numericId, number: chapterNumber });
 
-        // Auto-correct browser URL path client-side without page reload
+        // Auto-correct browser URL search param client-side without page reload
         if (typeof window !== "undefined") {
-          if (window.location.pathname !== canonicalPath) {
-            window.history.replaceState(null, "", canonicalPath);
+          const currentFullUrl = window.location.pathname + window.location.search;
+          if (currentFullUrl !== canonicalUrl) {
+            window.history.replaceState(null, "", canonicalUrl);
           }
         }
 
@@ -115,13 +117,13 @@ export default function ChapterClient({ id, chapterId }: { id: string; chapterId
         if (!seriesUrl) {
           const seriesSlug = meta.seriesId
             ? `${meta.seriesId}-${seriesTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`
-            : id;
+            : "series";
           seriesUrl = `/series/${seriesSlug}`;
         }
 
         if (isMounted) {
           setData({
-            seriesId: meta.seriesId ? String(meta.seriesId) : id,
+            seriesId: meta.seriesId ? String(meta.seriesId) : "series",
             seriesTitle: seriesTitle,
             seriesUrl: seriesUrl,
             chapter: {
@@ -130,7 +132,7 @@ export default function ChapterClient({ id, chapterId }: { id: string; chapterId
               title: cleanTitle,
               publishedAt: jsonRes.modified || new Date().toISOString(),
               wordCount: 0,
-              content: chapterContent
+              content: chapterContent,
             },
             prevChapterUrl,
             nextChapterUrl,
@@ -138,11 +140,11 @@ export default function ChapterClient({ id, chapterId }: { id: string; chapterId
             nextChapterNum: meta.next ? Number(meta.next.chapter) : undefined,
           });
           setLoading(false);
-          
+
           saveSeriesProgress({
-            seriesId: meta.seriesId ? String(meta.seriesId) : id,
+            seriesId: meta.seriesId ? String(meta.seriesId) : "series",
             chapterId: numericId,
-            number: Number(chapterNumber)
+            number: Number(chapterNumber),
           });
         }
       } catch (err) {
@@ -159,7 +161,7 @@ export default function ChapterClient({ id, chapterId }: { id: string; chapterId
     return () => {
       isMounted = false;
     };
-  }, [id, chapterId]);
+  }, [rawIdParam]);
 
   if (loading) {
     return (
@@ -197,4 +199,3 @@ export default function ChapterClient({ id, chapterId }: { id: string; chapterId
     />
   );
 }
-
