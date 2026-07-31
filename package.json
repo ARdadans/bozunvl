@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "preview": "npx serve out -c serve.json",
     "lint": "eslint",
     "check": "eslint && tsc --noEmit"
   },

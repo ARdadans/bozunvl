@@ -30,8 +30,25 @@ export default function ChapterClient({ id, chapterId }: { id: string; chapterId
       try {
         setLoading(true);
 
-        const parts = chapterId.split("-");
-        const numericId = parts.length > 0 ? parts[parts.length - 1] : chapterId;
+        let effectivePath = chapterId;
+        if (typeof window !== "undefined") {
+          const pathname = window.location.pathname;
+          const segments = pathname.split("/").filter(Boolean);
+          const chIndex = segments.indexOf("ch");
+          if (chIndex !== -1 && segments.length > chIndex + 1) {
+            const rawSegment = segments[chIndex + 1];
+            if (rawSegment && rawSegment !== "index") {
+              effectivePath = rawSegment;
+            }
+          }
+        }
+
+        const parts = effectivePath.split("-");
+        const numericId = parts.length > 0 ? parts[parts.length - 1] : effectivePath;
+
+        if (!numericId || numericId === "index" || isNaN(Number(numericId))) {
+          throw new Error("Invalid chapter ID");
+        }
 
         // Fetch chapter content directly, completely independent of series API
         const url = `${SITE.API_REST}/${SITE.ID}/posts/${numericId}?_fields=id,title,content,modified`;
