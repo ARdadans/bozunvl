@@ -115,11 +115,14 @@ export interface ReadChapter {
 export const markChapterAsRead = async (chapter: Omit<ReadChapter, 'readAt'>): Promise<void> => {
   try {
     const db = await initDB();
+    const numericSeriesId = chapter.seriesId.split('-')[0];
+    const chapterData = { ...chapter, seriesId: numericSeriesId };
+    
     return new Promise((resolve, reject) => {
       const tx = db.transaction(READ_STORE_NAME, 'readwrite');
       const store = tx.objectStore(READ_STORE_NAME);
       
-      const request = store.put({ ...chapter, readAt: Date.now() });
+      const request = store.put({ ...chapterData, readAt: Date.now() });
       
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
@@ -132,11 +135,12 @@ export const markChapterAsRead = async (chapter: Omit<ReadChapter, 'readAt'>): P
 export const getReadChapters = async (seriesId: string): Promise<string[]> => {
   try {
     const db = await initDB();
+    const numericSeriesId = seriesId.split('-')[0];
     return new Promise((resolve, reject) => {
       const tx = db.transaction(READ_STORE_NAME, 'readonly');
       const store = tx.objectStore(READ_STORE_NAME);
       const index = store.index('seriesId');
-      const request = index.getAll(seriesId);
+      const request = index.getAll(numericSeriesId);
       
       request.onsuccess = () => {
         const chapters = request.result as ReadChapter[];
@@ -160,15 +164,18 @@ export interface SeriesProgress {
 export const saveSeriesProgress = async (progress: Omit<SeriesProgress, 'readAt'>): Promise<void> => {
   try {
     const db = await initDB();
+    const numericSeriesId = progress.seriesId.split('-')[0];
+    const progressData = { ...progress, seriesId: numericSeriesId };
+    
     return new Promise((resolve, reject) => {
       const tx = db.transaction(PROGRESS_STORE_NAME, 'readwrite');
       const store = tx.objectStore(PROGRESS_STORE_NAME);
       
-      const request = store.get(progress.seriesId);
+      const request = store.get(numericSeriesId);
       request.onsuccess = () => {
         const existing = request.result as SeriesProgress | undefined;
-        if (!existing || progress.number > existing.number) {
-          const putRequest = store.put({ ...progress, readAt: Date.now() });
+        if (!existing || progressData.number > existing.number) {
+          const putRequest = store.put({ ...progressData, readAt: Date.now() });
           putRequest.onsuccess = () => {
             const countRequest = store.count();
             countRequest.onsuccess = () => {
@@ -205,10 +212,11 @@ export const saveSeriesProgress = async (progress: Omit<SeriesProgress, 'readAt'
 export const getSeriesProgress = async (seriesId: string): Promise<SeriesProgress | null> => {
   try {
     const db = await initDB();
+    const numericSeriesId = seriesId.split('-')[0];
     return new Promise((resolve, reject) => {
       const tx = db.transaction(PROGRESS_STORE_NAME, 'readonly');
       const store = tx.objectStore(PROGRESS_STORE_NAME);
-      const request = store.get(seriesId);
+      const request = store.get(numericSeriesId);
       
       request.onsuccess = () => resolve(request.result as SeriesProgress || null);
       request.onerror = () => reject(request.error);
@@ -222,10 +230,11 @@ export const getSeriesProgress = async (seriesId: string): Promise<SeriesProgres
 export const resetSeriesProgress = async (seriesId: string): Promise<void> => {
   try {
     const db = await initDB();
+    const numericSeriesId = seriesId.split('-')[0];
     return new Promise((resolve, reject) => {
       const tx = db.transaction(PROGRESS_STORE_NAME, 'readwrite');
       const store = tx.objectStore(PROGRESS_STORE_NAME);
-      const request = store.delete(seriesId);
+      const request = store.delete(numericSeriesId);
       
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
