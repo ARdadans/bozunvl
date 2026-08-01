@@ -51,6 +51,15 @@ export default function ChapterClient() {
           throw new Error("Invalid chapter ID");
         }
 
+        let urlChapterNumber: number | undefined;
+        const chapterIndex = parts.lastIndexOf("chapter");
+        if (chapterIndex !== -1 && chapterIndex === parts.length - 3) {
+          const possibleChapter = Number(parts[chapterIndex + 1]);
+          if (!isNaN(possibleChapter)) {
+            urlChapterNumber = possibleChapter;
+          }
+        }
+
         // Fetch chapter content directly, completely independent of series API
         const url = `${SITE.API_REST}/${SITE.ID}/posts/${numericId}?_fields=id,title,content,modified`;
         const res = await fetch(url);
@@ -73,7 +82,9 @@ export default function ChapterClient() {
         }
 
         const seriesTitle = meta.series || "Unknown Series";
-        const chapterNumber = meta.chapter !== undefined ? meta.chapter : numericId;
+        const chapterNumber = urlChapterNumber !== undefined 
+          ? urlChapterNumber 
+          : (meta.chapter !== undefined ? meta.chapter : numericId);
 
         // Clean title
         const rawTitle = jsonRes.title?.rendered || `Chapter ${chapterNumber}`;
