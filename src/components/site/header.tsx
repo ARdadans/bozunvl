@@ -128,7 +128,7 @@ export function SiteHeader({ className }: { className?: string }) {
   }, []);
 
   const pathname = usePathname();
-  if (pathname && pathname.includes("/ch/")) {
+  if (pathname && (pathname === "/ch" || pathname.startsWith("/ch/"))) {
     return null;
   }
 
