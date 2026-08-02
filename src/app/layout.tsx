@@ -6,7 +6,11 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner"
 import { BLOG } from "@/config/site";
 import Script from "next/script";
+import type { Viewport } from "next";
 
+export const viewport: Viewport = {
+  themeColor: "#000000",
+};
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

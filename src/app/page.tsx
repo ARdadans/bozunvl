@@ -3,19 +3,19 @@ import { Metadata } from "next";
 import { BLOG } from "@/config/site";
 
 export const metadata: Metadata = {
-  title: BLOG.TITLE,
+  title: BLOG.TITLE_LONG,
   description: BLOG.DESCRIPTION,
   alternates: {
-    canonical: BLOG.URL,
+    canonical: "/",
   },
   openGraph: {
-    url: BLOG.URL,
+    url: "/",
     images: [
       {
         url: `/apple-touch-icon.png`, // can be absolute if needed
-        width: 180,
-        height: 180,
-        alt: BLOG.TITLE,
+        width: 512,
+        height: 512,
+        alt: BLOG.TITLE_LONG,
       },
     ],
   },
@@ -25,7 +25,7 @@ export default function Page() {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    "name": BLOG.TITLE,
+    "name": BLOG.TITLE_LONG,
     "url": BLOG.URL,
     "description": BLOG.DESCRIPTION,
   };

@@ -180,11 +180,15 @@ function mapWpPostToSeries(post: any): Series {
     }
   }
 
-  // Extract last chapter from <p class="last-ch">20</p>
+  // Extract last chapter from element with class "last-ch"
   let lastCh = 1;
-  const lastChMatch = htmlContent.match(/<p[^>]*class=["']last-ch["'][^>]*>\s*(\d+)\s*<\/p>/i);
+  const lastChMatch = htmlContent.match(/class=["'][^"']*?\blast-ch\b[^"']*?["'][^>]*>([\s\S]*?)<\//i);
   if (lastChMatch && lastChMatch[1]) {
-    lastCh = parseInt(lastChMatch[1], 10);
+    const rawNum = lastChMatch[1].replace(/<[^>]+>/g, '').trim();
+    const num = parseFloat(rawNum);
+    if (!isNaN(num)) {
+      lastCh = num;
+    }
   }
 
   // Extract metadata
@@ -235,6 +239,13 @@ function mapWpPostToSeries(post: any): Series {
 
   const kebabTitle = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
   const seriesId = `${postId}-${kebabTitle}`;
+
+  if (chapters.length > 0) {
+    const maxCh = Math.max(...chapters.map(c => c.number));
+    if (maxCh > lastCh) {
+      lastCh = maxCh;
+    }
+  }
 
   return {
     id: seriesId,

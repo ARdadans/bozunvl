@@ -18,7 +18,8 @@ export const SITE = {
 // Data informasi umum blog untuk keperluan SEO (Metadata) dan UI
 export const BLOG = {
     TITLE: "BozuNovel",
-    DESCRIPTION: "Baca Shōsetsu (小説), Raito Noberu (ラノベ), Soseol (소설), Wepsoseol (웹소설) Korea & web novel gratis bahasa Indonesia. Platform baca novel Jepang dan Korea dari raw",
+    TITLE_LONG: "BozuNovel - Baca Novel Online Bahasa Indonesia",
+    DESCRIPTION: "Baca Shōsetsu (小説), Raito Noberu (ラノベ), Soseol (소설), Wepsoseol (웹소설) Korea & web novel gratis Bahasa Indonesia",
     URL: process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
     KEYWORDS: [
         "Shōsetsu",
