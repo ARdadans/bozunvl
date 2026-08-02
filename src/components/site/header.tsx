@@ -154,7 +154,7 @@ export function SiteHeader({ className }: { className?: string }) {
         <div className="hidden md:absolute md:left-1/2 md:-translate-x-1/2 md:flex">
           <button
             onClick={handleOpenSearch}
-            className="flex h-9 w-sm items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 text-muted-foreground transition-colors hover:bg-muted cursor-pointer md:text-base"
+            className="flex h-9 w-sm items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 text-foreground/80 transition-colors hover:bg-muted cursor-pointer md:text-base"
           >
             <div className="flex items-center gap-2">
               <Search className="h-4 w-4" />
