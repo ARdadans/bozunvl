@@ -74,7 +74,7 @@ export const metadata: Metadata = {
   },
   manifest: '/manifest.json', // Manifest will be loaded here
   verification: {
-    google: '', // Empty for now, for Search Console
+    google: 'QeeMQ8B8uk57zEXds2pXki0b4wEo9H1YIGZu5vEQ2mU', // Empty for now, for Search Console
   },
 };
 
