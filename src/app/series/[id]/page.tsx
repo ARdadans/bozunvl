@@ -1,4 +1,4 @@
-import { getSeriesById } from "@/lib/wp";
+import { getSeriesById, buildChapterUrl } from "@/lib/wp";
 import SeriesClient from "./SeriesClient";
 import { SITE, BLOG } from "@/config/site";
 import Link from "next/link";
@@ -11,7 +11,7 @@ export async function generateStaticParams() {
     const catRes = await fetch(catUrl);
     if (!catRes.ok) return [];
     const catData = await catRes.json();
-    
+
     if (!catData || catData.length === 0) return [];
     const categoryId = catData[0].id;
 
@@ -26,7 +26,7 @@ export async function generateStaticParams() {
       if (!res.ok) {
         break;
       }
-      
+
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         allPosts = [...allPosts, ...data];
@@ -78,8 +78,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       images: [
         {
           url: series.cover || `${BLOG.URL}/apple-touch-icon.png`,
-          width: 800,
-          height: 600,
+          width: 300,
+          height: 450,
           alt: series.title,
         },
       ],
@@ -96,8 +96,8 @@ export default async function SeriesPage({ params }: { params: Promise<{ id: str
       <div className="container mx-auto px-4 py-16 text-center text-[var(--color-foreground)]">
         <h1 className="font-heading text-2xl font-bold">Series not found</h1>
         <p className="mt-4 text-[var(--color-muted-foreground)]">The series you are looking for does not exist.</p>
-        <Link 
-          href="/" 
+        <Link
+          href="/"
           className="mt-6 inline-block bg-[var(--color-primary)] text-[var(--color-background)] hover:bg-[var(--color-primary-hover)] font-bold py-2.5 px-5 rounded-[var(--radius)]"
         >
           Go Home
@@ -108,19 +108,81 @@ export default async function SeriesPage({ params }: { params: Promise<{ id: str
 
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "Book",
-    "name": series.title,
-    "url": `${BLOG.URL}/series/${id}`,
-    "image": series.cover,
-    "description": series.description?.replace(/<[^>]+>/g, '') || `Baca seriesItem ${series.title} di ${BLOG.TITLE}`,
-    "author": {
-      "@type": "Person",
-      "name": series.author || "Unknown"
-    },
-    "publisher": {
-      "@type": "Organization",
-      "name": BLOG.TITLE
-    }
+    "@graph": [
+      {
+        "@type": "CreativeWorkSeries",
+        "@id": `${BLOG.URL}/series/${id}#series`,
+        "url": `${BLOG.URL}/series/${id}`,
+        "name": series.title,
+        ...(series.nativeTitle && series.nativeTitle.length > 0 ? { "alternateName": series.nativeTitle } : {}),
+        "description": series.description?.replace(/<[^>]+>/g, '') || `Baca series ${series.title} di ${BLOG.TITLE}`,
+        "image": {
+          "@type": "ImageObject",
+          "url": series.cover,
+          "width": 600,
+          "height": 900
+        },
+        "inLanguage": "id",
+        "genre": series.genres?.length > 0 ? series.genres : undefined,
+        "author": {
+          "@type": "Person",
+          "name": series.author || "Unknown"
+        },
+        "translator": {
+          "@type": "Person",
+          "name": BLOG.TITLE
+        },
+        "publisher": {
+          "@type": "Organization",
+          "name": series.publisher || BLOG.TITLE,
+          "url": series.publisherUrl || BLOG.URL,
+          "logo": {
+            "@type": "ImageObject",
+            "url": `${BLOG.URL}/apple-touch-icon.png`
+          }
+        },
+        "numberOfEpisodes": series.lastCh || 0,
+        "datePublished": series.chapters && series.chapters.length > 0 ? series.chapters[series.chapters.length - 1].publishedAt : series.updatedAt,
+        "dateModified": series.updatedAt,
+        "isAccessibleForFree": true
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": BLOG.URL
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Series",
+            "item": `${BLOG.URL}/series`
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": series.title,
+            "item": `${BLOG.URL}/series/${id}`
+          }
+        ]
+      },
+      {
+        "@type": "ItemList",
+        "name": `Daftar Chapter - ${series.title}`,
+        "description": "Beberapa chapter dari series ini",
+        "numberOfItems": series.chapters?.length || 0,
+        "itemListOrder": "https://schema.org/ItemListOrderAscending",
+        "itemListElement": series.chapters?.map((ch, index) => ({
+          "@type": "ListItem",
+          "position": index + 1,
+          "name": ch.title || `Chapter ${ch.number}`,
+          "url": `${BLOG.URL}${buildChapterUrl({ id, title: series.title }, ch)}`
+        })) || []
+      }
+    ]
   };
 
   return (

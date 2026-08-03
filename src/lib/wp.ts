@@ -13,8 +13,10 @@ export interface Series {
   lastCh: number;
   lastChUpdateAt: number;
   titleAlts?: string[];
+  nativeTitle?: string[];
   artist?: string;
   publisher?: string;
+  publisherUrl?: string;
   country?: string;
   language?: string;
   year?: string;
@@ -195,7 +197,20 @@ function mapWpPostToSeries(post: any): Series {
   const summaryMatch = getSpanText("summary");
   const author = getSpanText("author", "Unknown Author");
   const artist = getSpanText("artist");
-  const publisher = getSpanText("publisher");
+  
+  let publisher = getSpanText("publisher");
+  let publisherUrl: string | undefined;
+  const pubMatch = htmlContent.match(/<span[^>]*class=["']publisher["'][^>]*>(.*?)<\/span>/i);
+  if (pubMatch && pubMatch[1]) {
+    const aMatch = pubMatch[1].match(/<a[^>]*href=["']([^"']+)["'][^>]*>(.*?)<\/a>/i);
+    if (aMatch) {
+      publisherUrl = aMatch[1];
+      publisher = decodeHtmlEntities(aMatch[2].replace(/<[^>]+>/g, "").trim());
+    } else {
+      publisher = decodeHtmlEntities(pubMatch[1].replace(/<[^>]+>/g, "").trim());
+    }
+  }
+
   const country = getSpanText("country");
   const language = getSpanText("language");
   const statusRaw = getSpanText("status", "Ongoing");
@@ -206,6 +221,17 @@ function mapWpPostToSeries(post: any): Series {
   const titleAlts = getListItems("title-alts");
   const genres = getListItems("genres");
   const tags = getListItems("tag");
+
+  const nativeTitle: string[] = [];
+  const titleAltsUlMatch = htmlContent.match(/<ul[^>]*class=["'][^"']*title-alts[^"']*["'][^>]*>(.*?)<\/ul>/is);
+  if (titleAltsUlMatch && titleAltsUlMatch[1]) {
+    const listHtml = titleAltsUlMatch[1];
+    const liRegexNative = /<li[^>]*class=["'][^"']*native-title[^"']*["'][^>]*>(.*?)<\/li>/gi;
+    let match;
+    while ((match = liRegexNative.exec(listHtml)) !== null) {
+      if (match[1]) nativeTitle.push(decodeHtmlEntities(match[1].replace(/<[^>]+>/g, "").trim()));
+    }
+  }
 
   let description = summaryMatch || post.excerpt?.rendered || htmlContent;
   description = description.replace(/<[^>]+>/g, "").trim();
@@ -261,8 +287,10 @@ function mapWpPostToSeries(post: any): Series {
     lastCh: lastCh,
     lastChUpdateAt: new Date(post.modified || post.date).getTime(),
     titleAlts: titleAlts,
+    nativeTitle: nativeTitle,
     artist: artist,
     publisher: publisher,
+    publisherUrl: publisherUrl,
     country: country,
     language: language,
     year: year,
