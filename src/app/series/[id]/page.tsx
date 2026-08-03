@@ -78,8 +78,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       images: [
         {
           url: series.cover || `${BLOG.URL}/apple-touch-icon.png`,
-          width: 300,
-          height: 450,
+          width: series.coverWidth || 300,
+          height: series.coverHeight || 450,
           alt: series.title,
         },
       ],
@@ -106,6 +106,11 @@ export default async function SeriesPage({ params }: { params: Promise<{ id: str
     );
   }
 
+  const chaptersForSchema = series.chapters || [];
+  const schemaChapters = chaptersForSchema.length <= 6
+    ? chaptersForSchema
+    : [...chaptersForSchema.slice(0, 3), ...chaptersForSchema.slice(-3)];
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -114,37 +119,28 @@ export default async function SeriesPage({ params }: { params: Promise<{ id: str
         "@id": `${BLOG.URL}/series/${id}#series`,
         "url": `${BLOG.URL}/series/${id}`,
         "name": series.title,
-        ...(series.nativeTitle && series.nativeTitle.length > 0 ? { "alternateName": series.nativeTitle } : {}),
+        ...(series.titleAlts && series.titleAlts.length > 0 ? { "alternateName": series.titleAlts } : {}),
         "description": series.description?.replace(/<[^>]+>/g, '') || `Baca series ${series.title} di ${BLOG.TITLE}`,
         "image": {
           "@type": "ImageObject",
           "url": series.cover,
-          "width": 600,
-          "height": 900
+          "width": series.coverWidth || 300,
+          "height": series.coverHeight || 450
         },
         "inLanguage": "id",
+        "creativeWorkStatus": series.status,
         "genre": series.genres?.length > 0 ? series.genres : undefined,
         "author": {
           "@type": "Person",
           "name": series.author || "Unknown"
         },
-        "translator": {
-          "@type": "Person",
-          "name": BLOG.TITLE
-        },
         "publisher": {
           "@type": "Organization",
           "name": series.publisher || BLOG.TITLE,
           "url": series.publisherUrl || BLOG.URL,
-          "logo": {
-            "@type": "ImageObject",
-            "url": `${BLOG.URL}/apple-touch-icon.png`
-          }
         },
-        "numberOfEpisodes": series.lastCh || 0,
         "datePublished": series.chapters && series.chapters.length > 0 ? series.chapters[series.chapters.length - 1].publishedAt : series.updatedAt,
         "dateModified": series.updatedAt,
-        "isAccessibleForFree": true
       },
       {
         "@type": "BreadcrumbList",
@@ -158,12 +154,6 @@ export default async function SeriesPage({ params }: { params: Promise<{ id: str
           {
             "@type": "ListItem",
             "position": 2,
-            "name": "Series",
-            "item": `${BLOG.URL}/series`
-          },
-          {
-            "@type": "ListItem",
-            "position": 3,
             "name": series.title,
             "item": `${BLOG.URL}/series/${id}`
           }
@@ -175,12 +165,12 @@ export default async function SeriesPage({ params }: { params: Promise<{ id: str
         "description": "Beberapa chapter dari series ini",
         "numberOfItems": series.chapters?.length || 0,
         "itemListOrder": "https://schema.org/ItemListOrderAscending",
-        "itemListElement": series.chapters?.map((ch, index) => ({
+        "itemListElement": schemaChapters.map((ch, index) => ({
           "@type": "ListItem",
           "position": index + 1,
           "name": ch.title || `Chapter ${ch.number}`,
           "url": `${BLOG.URL}${buildChapterUrl({ id, title: series.title }, ch)}`
-        })) || []
+        }))
       }
     ]
   };

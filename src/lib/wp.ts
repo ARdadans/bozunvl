@@ -4,6 +4,8 @@ export interface Series {
   title: string;
   author: string;
   cover: string;
+  coverWidth?: number;
+  coverHeight?: number;
   description: string;
   genres: string[];
   status: "Ongoing" | "Completed";
@@ -172,14 +174,27 @@ function mapWpPostToSeries(post: any): Series {
 
   // Extract cover from <img class="poster" src="...">
   let coverUrl = post.jetpack_featured_media_url || post.featured_image;
-  if (!coverUrl) {
-    const posterMatch = htmlContent.match(/<img[^>]*class=["']poster["'][^>]*src=["']([^"']+)["']/i) ||
-      htmlContent.match(/<img[^>]*src=["']([^"']+)["'][^>]*class=["']poster["']/i);
-    if (posterMatch && posterMatch[1]) {
-      coverUrl = posterMatch[1];
-    } else {
-      coverUrl = `https://placehold.co/300x450/1a1a2e/ffffff?text=Series+${postId}`;
+  let coverWidth: number | undefined;
+  let coverHeight: number | undefined;
+
+  const posterImgMatch = htmlContent.match(/<img[^>]*class=["']poster["'][^>]*>/i) ||
+    htmlContent.match(/<img[^>]*src=["'][^"']+["'][^>]*class=["']poster["'][^>]*>/i);
+
+  if (posterImgMatch && posterImgMatch[0]) {
+    const imgTag = posterImgMatch[0];
+    const widthMatch = imgTag.match(/width=["'](\d+)["']/i);
+    const heightMatch = imgTag.match(/height=["'](\d+)["']/i);
+    if (widthMatch) coverWidth = parseInt(widthMatch[1], 10);
+    if (heightMatch) coverHeight = parseInt(heightMatch[1], 10);
+    
+    if (!coverUrl) {
+      const srcMatch = imgTag.match(/src=["']([^"']+)["']/i);
+      if (srcMatch && srcMatch[1]) coverUrl = srcMatch[1];
     }
+  }
+
+  if (!coverUrl) {
+    coverUrl = `https://placehold.co/300x450/1a1a2e/ffffff?text=Series+${postId}`;
   }
 
   // Extract last chapter from element with class "last-ch"
@@ -213,25 +228,61 @@ function mapWpPostToSeries(post: any): Series {
 
   const country = getSpanText("country");
   const language = getSpanText("language");
-  const statusRaw = getSpanText("status", "Ongoing");
-  const status = (statusRaw.toLowerCase() === "completed" ? "Completed" : "Ongoing") as "Ongoing" | "Completed";
+  let status: "Ongoing" | "Completed" = "Ongoing";
+  if (post.categories && typeof post.categories === 'object' && !Array.isArray(post.categories)) {
+    // WP v1.1 API
+    const catKeys = Object.keys(post.categories);
+    for (const key of catKeys) {
+      const slug = post.categories[key].slug || "";
+      if (slug.startsWith("status-")) {
+        status = slug === "status-completed" ? "Completed" : "Ongoing";
+        break;
+      }
+    }
+  } else if (post._embedded && post._embedded['wp:term']) {
+    // WP v2 API with _embed
+    const terms = post._embedded['wp:term'];
+    for (const taxonomy of terms) {
+      if (Array.isArray(taxonomy)) {
+        for (const term of taxonomy) {
+          if (term.taxonomy === 'category' && term.slug && term.slug.startsWith('status-')) {
+            status = term.slug === 'status-completed' ? 'Completed' : 'Ongoing';
+            break;
+          }
+        }
+      }
+    }
+  } else {
+    // Fallback to HTML tag
+    const statusRaw = getSpanText("status", "Ongoing");
+    status = (statusRaw.toLowerCase() === "completed" ? "Completed" : "Ongoing") as "Ongoing" | "Completed";
+  }
+
   const year = getSpanText("year");
   const media = getSpanText("media", "Series");
 
-  const titleAlts = getListItems("title-alts");
   const genres = getListItems("genres");
   const tags = getListItems("tag");
 
   const nativeTitle: string[] = [];
+  const normalAlts: string[] = [];
   const titleAltsUlMatch = htmlContent.match(/<ul[^>]*class=["'][^"']*title-alts[^"']*["'][^>]*>(.*?)<\/ul>/is);
   if (titleAltsUlMatch && titleAltsUlMatch[1]) {
     const listHtml = titleAltsUlMatch[1];
-    const liRegexNative = /<li[^>]*class=["'][^"']*native-title[^"']*["'][^>]*>(.*?)<\/li>/gi;
+    const liRegex = /<li[^>]*>(.*?)<\/li>/gi;
     let match;
-    while ((match = liRegexNative.exec(listHtml)) !== null) {
-      if (match[1]) nativeTitle.push(decodeHtmlEntities(match[1].replace(/<[^>]+>/g, "").trim()));
+    while ((match = liRegex.exec(listHtml)) !== null) {
+      if (match[1]) {
+        const text = decodeHtmlEntities(match[1].replace(/<[^>]+>/g, "").trim());
+        if (match[0].includes("native-title")) {
+          nativeTitle.push(text);
+        } else {
+          normalAlts.push(text);
+        }
+      }
     }
   }
+  const titleAlts = [...nativeTitle, ...normalAlts];
 
   let description = summaryMatch || post.excerpt?.rendered || htmlContent;
   description = description.replace(/<[^>]+>/g, "").trim();
@@ -278,6 +329,8 @@ function mapWpPostToSeries(post: any): Series {
     title: title,
     author: author,
     cover: coverUrl,
+    coverWidth: coverWidth,
+    coverHeight: coverHeight,
     description: description,
     genres: genres,
     status: status,
@@ -301,7 +354,7 @@ function mapWpPostToSeries(post: any): Series {
 
 export async function getSeriesByCategory(categoryId: number, page: number = 1, perPage: number = SITE.PER_PAGE): Promise<Series[]> {
   try {
-    const url = `${SITE.API_REST}/${SITE.ID}/posts?categories=${categoryId}&orderby=modified&order=desc&per_page=${perPage}&page=${page}&_fields=id,title,content,modified`;
+    const url = `${SITE.API_REST}/${SITE.ID}/posts?categories=${categoryId}&orderby=modified&order=desc&per_page=${perPage}&page=${page}&_fields=id,title,content,modified,categories,_links&_embed=wp:term`;
     const res = await fetch(url, { cache: 'force-cache' });
     if (!res.ok) throw new Error("Failed to fetch series");
     const data = await res.json();
@@ -346,7 +399,7 @@ export async function searchSeries(
       orderParam = "&order=DESC";
     }
 
-    let url = `https://public-api.wordpress.com/rest/v1.1/sites/${SITE.ID}/posts?fields=found,ID,title,modified,content&number=${perPage}&page=${page}&${orderByParam}${orderParam}`;
+    let url = `https://public-api.wordpress.com/rest/v1.1/sites/${SITE.ID}/posts?fields=found,ID,title,modified,content,categories&number=${perPage}&page=${page}&${orderByParam}${orderParam}`;
 
     const categorySlugs: string[] = [];
     if (filters?.media) categorySlugs.push(...filters.media);
@@ -392,7 +445,7 @@ export async function getSeriesById(slugId: string): Promise<Series | null> {
   const numericId = slugId.split("-")[0];
   if (!numericId) return null;
   try {
-    const url = `${SITE.API_REST}/${SITE.ID}/posts/${numericId}?_fields=id,title,content,modified`;
+    const url = `${SITE.API_REST}/${SITE.ID}/posts/${numericId}?_fields=id,title,content,modified,categories,_links&_embed=wp:term`;
     const res = await fetch(url, { cache: 'force-cache' });
     if (!res.ok) throw new Error("Failed to fetch series by ID");
     const data = await res.json();
