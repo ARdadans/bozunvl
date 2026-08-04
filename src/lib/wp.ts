@@ -202,23 +202,29 @@ function mapWpPostToSeries(post: any): Series {
   let lastCh = 1;
 
   // 1. First, try to extract from element with class "last-ch-number"
-  const lastChNumMatch = htmlContent.match(/class=["'][^"']*?\blast-ch-number\b[^"']*?["'][^>]*>([\s\S]*?)<\//i);
+  const lastChNumMatch = htmlContent.match(/<[^>]*\bclass=["'][^"']*?\blast-ch-number\b[^"']*?["'][^>]*>([\s\S]*?)<\/[a-z0-9]+>/i);
   if (lastChNumMatch && lastChNumMatch[1]) {
-    const rawNum = lastChNumMatch[1].replace(/<[^>]+>/g, '').trim();
-    const num = parseFloat(rawNum);
-    if (!isNaN(num)) {
-      lastCh = num;
+    const rawContent = lastChNumMatch[1].replace(/<[^>]+>/g, '').trim();
+    const numMatch = rawContent.match(/[\d.]+/);
+    if (numMatch) {
+      const num = parseFloat(numMatch[0]);
+      if (!isNaN(num)) {
+        lastCh = num;
+      }
     }
   }
 
   // 2. Fallback to the original method (element with class "last-ch")
   if (lastCh === 1) {
-    const lastChMatch = htmlContent.match(/class=["'][^"']*?\blast-ch\b[^"']*?["'][^>]*>([\s\S]*?)<\//i);
+    const lastChMatch = htmlContent.match(/<[^>]*\bclass=["'][^"']*?\blast-ch\b[^"']*?["'][^>]*>([\s\S]*?)<\/[a-z0-9]+>/i);
     if (lastChMatch && lastChMatch[1]) {
-      const rawNum = lastChMatch[1].replace(/<[^>]+>/g, '').trim();
-      const num = parseFloat(rawNum);
-      if (!isNaN(num)) {
-        lastCh = num;
+      const rawContent = lastChMatch[1].replace(/<[^>]+>/g, '').trim();
+      const numMatch = rawContent.match(/[\d.]+/);
+      if (numMatch) {
+        const num = parseFloat(numMatch[0]);
+        if (!isNaN(num)) {
+          lastCh = num;
+        }
       }
     }
   }

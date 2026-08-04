@@ -132,10 +132,10 @@ export default function Home({ initialSeries = [], initialPopularSeries = [] }: 
                         </div>
                       </CarouselItem>
                     ))
-                    : popularSeries.map((series) => (
+                    : popularSeries.map((series, index) => (
                       <CarouselItem key={series.id} className="basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5 xl:basis-1/6">
                         <div className="p-1">
-                          <SeriesCard series={series} />
+                          <SeriesCard series={series} priority={index < 6} />
                         </div>
                       </CarouselItem>
                     ))}
@@ -166,9 +166,9 @@ export default function Home({ initialSeries = [], initialPopularSeries = [] }: 
               </div>
             ) : (
               <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 md:gap-4">
-                {seriesList.map((series) => (
+                {seriesList.map((series, index) => (
                   <div key={series.id}>
-                    <SeriesCard series={series} />
+                    <SeriesCard series={series} priority={index < 6} />
                   </div>
                 ))}
               </div>

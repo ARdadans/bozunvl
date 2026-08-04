@@ -8,9 +8,10 @@ import { RelativeTime } from "@/components/ui/relative-time";
 interface SeriesCardProps {
   series: Series;
   index?: number;
+  priority?: boolean;
 }
 
-export function SeriesCard({ series }: SeriesCardProps) {
+export function SeriesCard({ series, priority }: SeriesCardProps) {
   return (
     <div>
       <Link href={`/series/${series.id}`}>
@@ -22,6 +23,7 @@ export function SeriesCard({ series }: SeriesCardProps) {
               width={240}
               height={360}
               unoptimized
+              priority={priority}
               className="h-full w-full object-cover rounded-sm"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent opacity-0 transition-opacity duration-300 ease-out group-hover:opacity-100" />
