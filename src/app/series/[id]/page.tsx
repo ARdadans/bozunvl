@@ -128,8 +128,14 @@ export default async function SeriesPage({ params }: { params: Promise<{ id: str
           "height": series.coverHeight || 450
         },
         "inLanguage": "id",
-        "creativeWorkStatus": series.status,
-        "genre": series.genres?.length > 0 ? series.genres : undefined,
+        // creativeWorkStatus butuh enum URL, bukan string bebas "Ongoing"/"Completed"
+        "creativeWorkStatus":
+          series.status?.toLowerCase() === "ongoing"
+            ? "https://schema.org/OngoingStatus"
+            : series.status?.toLowerCase() === "completed"
+              ? "https://schema.org/CompletedStatus"
+              : undefined,
+        ...(series.genres && series.genres.length > 0 ? { "genre": series.genres } : {}),
         "author": {
           "@type": "Person",
           "name": series.author || "Unknown"
@@ -137,13 +143,23 @@ export default async function SeriesPage({ params }: { params: Promise<{ id: str
         "publisher": {
           "@type": "Organization",
           "name": series.publisher || BLOG.TITLE,
-          "url": series.publisherUrl || BLOG.URL,
+          // FIX: jangan fallback ke BLOG.URL (URL series sendiri) — pakai domain resmi publisher.
+          // Kalau publisherUrl tidak tersedia, publisher IS the site → BLOG.URL baru valid.
+          "url": series.publisherUrl || (series.publisher ? undefined : BLOG.URL),
         },
-        "datePublished": series.chapters && series.chapters.length > 0 ? series.chapters[series.chapters.length - 1].publishedAt : series.updatedAt,
+        "datePublished": series.chapters && series.chapters.length > 0
+          ? series.chapters[series.chapters.length - 1].publishedAt
+          : series.updatedAt,
         "dateModified": series.updatedAt,
+        // hubungkan ke node lain dalam graph
+        "hasPart": [
+          { "@id": `${BLOG.URL}/series/${id}#chapters` }
+        ],
+        ...(series.sameAs && series.sameAs.length > 0 ? { "sameAs": series.sameAs } : {}),
       },
       {
         "@type": "BreadcrumbList",
+        "@id": `${BLOG.URL}/series/${id}#breadcrumb`,
         "itemListElement": [
           {
             "@type": "ListItem",
@@ -161,6 +177,8 @@ export default async function SeriesPage({ params }: { params: Promise<{ id: str
       },
       {
         "@type": "ItemList",
+        "@id": `${BLOG.URL}/series/${id}#chapters`,
+        "isPartOf": { "@id": `${BLOG.URL}/series/${id}#series` },
         "name": `Daftar Chapter - ${series.title}`,
         "description": "Beberapa chapter dari series ini",
         "numberOfItems": series.chapters?.length || 0,

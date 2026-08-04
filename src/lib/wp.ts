@@ -24,6 +24,7 @@ export interface Series {
   year?: string;
   tags?: string[];
   media?: string;
+  sameAs?: string[];
 }
 
 export interface Chapter {
@@ -290,7 +291,7 @@ function mapWpPostToSeries(post: any): Series {
 
   const nativeTitle: string[] = [];
   const normalAlts: string[] = [];
-  const titleAltsUlMatch = htmlContent.match(/<ul[^>]*class=["'][^"']*title-alts[^"']*["'][^>]*>(.*?)<\/ul>/is);
+  const titleAltsUlMatch = htmlContent.match(/<ul[^>]*class=["'][^"']*title-alts[^"']*["'][^>]*>([\s\S]*?)<\/ul>/i);
   if (titleAltsUlMatch && titleAltsUlMatch[1]) {
     const listHtml = titleAltsUlMatch[1];
     const liRegex = /<li[^>]*>(.*?)<\/li>/gi;

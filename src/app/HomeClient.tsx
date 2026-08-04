@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Series, getCategoryId, getSeriesByCategory, getPopularSeries, idbGet, idbSet } from "@/lib/wp";
 import { SeriesCard } from "@/components/series/series-card";
 import { Button } from "@/components/ui/button";
-import { SITE, BLOG } from "@/config/site";
+import { SITE } from "@/config/site";
 import {
   Carousel,
   CarouselContent,
@@ -81,7 +81,7 @@ export default function Home({ initialSeries = [], initialPopularSeries = [] }: 
     fetchPopular();
     fetchInitial();
     return () => { isMounted = false; };
-  }, [initialSeries.length]);
+  }, [initialSeries.length, initialPopularSeries]);
 
   const loadMore = async () => {
     setIsLoading(true);
