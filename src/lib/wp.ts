@@ -200,6 +200,7 @@ function mapWpPostToSeries(post: any): Series {
 
   // Extract last chapter
   let lastCh = 1;
+  let isLastChExplicitlySet = false;
 
   // 1. First, try to extract from element with class "last-ch-number"
   const lastChNumMatch = htmlContent.match(/<[^>]*\bclass=["'][^"']*?\blast-ch-number\b[^"']*?["'][^>]*>([\s\S]*?)<\/[a-z0-9]+>/i);
@@ -210,12 +211,13 @@ function mapWpPostToSeries(post: any): Series {
       const num = parseFloat(numMatch[0]);
       if (!isNaN(num)) {
         lastCh = num;
+        isLastChExplicitlySet = true;
       }
     }
   }
 
   // 2. Fallback to the original method (element with class "last-ch")
-  if (lastCh === 1) {
+  if (!isLastChExplicitlySet) {
     const lastChMatch = htmlContent.match(/<[^>]*\bclass=["'][^"']*?\blast-ch\b[^"']*?["'][^>]*>([\s\S]*?)<\/[a-z0-9]+>/i);
     if (lastChMatch && lastChMatch[1]) {
       const rawContent = lastChMatch[1].replace(/<[^>]+>/g, '').trim();
@@ -224,6 +226,7 @@ function mapWpPostToSeries(post: any): Series {
         const num = parseFloat(numMatch[0]);
         if (!isNaN(num)) {
           lastCh = num;
+          isLastChExplicitlySet = true;
         }
       }
     }
@@ -340,7 +343,7 @@ function mapWpPostToSeries(post: any): Series {
 
   if (chapters.length > 0) {
     const maxCh = Math.max(...chapters.map(c => c.number));
-    if (maxCh > lastCh) {
+    if (!isLastChExplicitlySet && maxCh > lastCh) {
       lastCh = maxCh;
     }
   }
