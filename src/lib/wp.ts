@@ -194,17 +194,32 @@ function mapWpPostToSeries(post: any): Series {
   }
 
   if (!coverUrl) {
-    coverUrl = `https://placehold.co/300x450/1a1a2e/ffffff?text=Series+${postId}`;
+    const fallbackSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450"><rect width="100%" height="100%" fill="#1a1a2e"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#ffffff" font-family="sans-serif" font-size="24">Series ${postId}</text></svg>`;
+    coverUrl = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(fallbackSvg)}`;
   }
 
-  // Extract last chapter from element with class "last-ch"
+  // Extract last chapter
   let lastCh = 1;
-  const lastChMatch = htmlContent.match(/class=["'][^"']*?\blast-ch\b[^"']*?["'][^>]*>([\s\S]*?)<\//i);
-  if (lastChMatch && lastChMatch[1]) {
-    const rawNum = lastChMatch[1].replace(/<[^>]+>/g, '').trim();
+
+  // 1. First, try to extract from element with class "last-ch-number"
+  const lastChNumMatch = htmlContent.match(/class=["'][^"']*?\blast-ch-number\b[^"']*?["'][^>]*>([\s\S]*?)<\//i);
+  if (lastChNumMatch && lastChNumMatch[1]) {
+    const rawNum = lastChNumMatch[1].replace(/<[^>]+>/g, '').trim();
     const num = parseFloat(rawNum);
     if (!isNaN(num)) {
       lastCh = num;
+    }
+  }
+
+  // 2. Fallback to the original method (element with class "last-ch")
+  if (lastCh === 1) {
+    const lastChMatch = htmlContent.match(/class=["'][^"']*?\blast-ch\b[^"']*?["'][^>]*>([\s\S]*?)<\//i);
+    if (lastChMatch && lastChMatch[1]) {
+      const rawNum = lastChMatch[1].replace(/<[^>]+>/g, '').trim();
+      const num = parseFloat(rawNum);
+      if (!isNaN(num)) {
+        lastCh = num;
+      }
     }
   }
 
