@@ -451,7 +451,7 @@ export async function searchSeries(
       url += `&search=${encodeURIComponent(searchQuery.trim())}`;
     }
 
-    const res = await fetch(url, { cache: 'no-store' });
+    const res = await fetch(url, { cache: 'force-cache' });
     if (!res.ok) throw new Error("Failed to search series");
     const data = await res.json();
 
@@ -484,7 +484,7 @@ export async function getSeriesById(slugId: string): Promise<Series | null> {
 export async function getPopularSeries(): Promise<Series[]> {
   try {
     const url = `https://public-api.wordpress.com/rest/v1.1/sites/${SITE.ID}/posts/${SITE.POPULAR_POST_ID}?fields=modified,title,content,slug`;
-    const res = await fetch(url, { cache: 'no-store' });
+    const res = await fetch(url, { cache: 'force-cache' });
     if (!res.ok) throw new Error("Failed to fetch popular series meta");
     const data = await res.json();
 
@@ -497,7 +497,7 @@ export async function getPopularSeries(): Promise<Series[]> {
         if (json && json.posts && Array.isArray(json.posts) && json.posts.length > 0) {
           const postIds = json.posts.join(',');
           const v2Url = `https://public-api.wordpress.com/wp/v2/sites/${SITE.ID}/posts?include=${postIds}&orderby=include&_fields=id,title,content,modified`;
-          const v2Res = await fetch(v2Url, { cache: 'no-store' });
+          const v2Res = await fetch(v2Url, { cache: 'force-cache' });
           if (!v2Res.ok) throw new Error("Failed to fetch popular posts details");
           const v2Data = await v2Res.json();
           if (Array.isArray(v2Data)) {
