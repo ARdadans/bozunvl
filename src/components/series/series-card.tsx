@@ -19,8 +19,8 @@ export function SeriesCard({ series, priority, rank }: SeriesCardProps) {
         <div className="group flex flex-col h-full relative">
           {rank !== undefined && (
             <span 
-              className="absolute -left-3 md:-left-4 bottom-12 z-20 font-heading font-black text-7xl md:text-8xl text-background pointer-events-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] leading-none"
-              style={{ WebkitTextStroke: '2px var(--color-primary)' }}
+              className="absolute -left-3 md:-left-4 bottom-12 z-20 font-heading font-black text-7xl md:text-8xl text-background/50 pointer-events-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] leading-none"
+              style={{ WebkitTextStroke: '2px var(--color-foreground)' }}
             >
               {rank}
             </span>
