@@ -7,7 +7,7 @@ export const SITE = {
     // Base URL untuk endpoint WordPress REST API v2
     API_REST: "https://public-api.wordpress.com/wp/v2/sites",
     // Jumlah post maksimal per halaman (default fetching limit)
-    PER_PAGE: 24,
+    PER_PAGE: 18,
     // Ambil disini https://public-api.wordpress.com/rest/v1.1/sites/{site.id}/posts?type=page
     POPULAR_POST_ID: 396,
     POPULAR_POST_ID_TTL_SECONDS: 7200,

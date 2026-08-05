@@ -9,14 +9,23 @@ interface SeriesCardProps {
   series: Series;
   index?: number;
   priority?: boolean;
+  rank?: number;
 }
 
-export function SeriesCard({ series, priority }: SeriesCardProps) {
+export function SeriesCard({ series, priority, rank }: SeriesCardProps) {
   return (
     <div>
       <Link href={`/series/${series.id}`}>
-        <div className="group flex flex-col h-full overflow-hidden">
-          <div className="relative aspect-[2/3] overflow-hidden">
+        <div className="group flex flex-col h-full relative">
+          {rank !== undefined && (
+            <span 
+              className="absolute -left-3 md:-left-4 bottom-12 z-20 font-heading font-black text-7xl md:text-8xl text-background pointer-events-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] leading-none"
+              style={{ WebkitTextStroke: '2px var(--color-primary)' }}
+            >
+              {rank}
+            </span>
+          )}
+          <div className="relative aspect-[2/3] overflow-hidden rounded-sm">
             <Image
               src={series.cover}
               alt={series.title}

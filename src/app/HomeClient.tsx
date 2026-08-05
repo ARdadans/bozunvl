@@ -122,8 +122,8 @@ export default function Home({ initialSeries = [], initialPopularSeries = [] }: 
                 <CarouselContent>
                   {isPopularLoading
                     ? Array.from({ length: 6 }).map((_, i) => (
-                      <CarouselItem key={i} className="basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5 xl:basis-1/6">
-                        <div className="p-1">
+                      <CarouselItem key={i} className="basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5 xl:basis-1/6 pl-4 md:pl-5">
+                        <div className="p-1 pl-2 md:pl-3">
                           <div className="flex flex-col gap-2">
                             <div className="w-full aspect-[2/3] bg-muted animate-pulse rounded-sm" />
                             <div className="h-4 w-3/4 bg-muted animate-pulse rounded" />
@@ -133,9 +133,9 @@ export default function Home({ initialSeries = [], initialPopularSeries = [] }: 
                       </CarouselItem>
                     ))
                     : popularSeries.map((series, index) => (
-                      <CarouselItem key={series.id} className="basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5 xl:basis-1/6">
-                        <div className="p-1">
-                          <SeriesCard series={series} priority={index < 6} />
+                      <CarouselItem key={series.id} className="basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5 xl:basis-1/6 pl-4 md:pl-5">
+                        <div className="p-1 pl-2 md:pl-3">
+                          <SeriesCard series={series} priority={index < 6} rank={index + 1} />
                         </div>
                       </CarouselItem>
                     ))}

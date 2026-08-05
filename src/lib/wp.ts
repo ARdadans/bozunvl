@@ -485,47 +485,27 @@ export async function getPopularSeries(): Promise<Series[]> {
   try {
     const url = `https://public-api.wordpress.com/rest/v1.1/sites/${SITE.ID}/posts/${SITE.POPULAR_POST_ID}?fields=modified,title,content,slug`;
     const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) throw new Error("Failed to fetch popular series");
+    if (!res.ok) throw new Error("Failed to fetch popular series meta");
     const data = await res.json();
 
-    // Use greedy match [\s\S]* because the HTML content inside the JSON contains inner <pre> tags (like <pre id="series-meta">)
     const match = data.content.match(/<pre[^>]*class=["']popular["'][^>]*>([\s\S]*)<\/pre>/i);
     if (match && match[1]) {
       const decoded = decodeHtmlEntities(match[1]);
       
       try {
         const json = JSON.parse(decoded);
-        if (json && json.posts && Array.isArray(json.posts)) {
-          return json.posts.map(mapWpPostToSeries);
-        }
-      } catch {
-        // Fallback: If JSON is invalid due to unescaped inner quotes, use a regex parser
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const posts: any[] = [];
-        // Use greedy match [\s\S]* so it finds the LAST bracket instead of stopping at an inner bracket like ]}}
-        const postsMatch = decoded.match(/"posts"\s*:\s*\[([\s\S]*)\](?:\s*,\s*"meta"|\s*\})/);
-        
-        if (postsMatch && postsMatch[1]) {
-          const postsStr = postsMatch[1];
-          const postRegex = /\{"ID":\s*(\d+)\s*,\s*"modified":\s*"([\s\S]*?)"\s*,\s*"title":\s*"([\s\S]*?)"\s*,\s*"content":\s*"([\s\S]*?)"\}(?=\s*,\s*\{"ID"|$)/g;
-          
-          let matchPost;
-          const unescapeStr = (s: string) => s.replace(/\\"/g, '"')
-                                              .replace(/\\n/g, '\n')
-                                              .replace(/\\r/g, '\r')
-                                              .replace(/\\t/g, '\t')
-                                              .replace(/\\\//g, '/')
-                                              .replace(/\\\\/g, '\\');
-          while ((matchPost = postRegex.exec(postsStr)) !== null) {
-            posts.push({
-              ID: parseInt(matchPost[1], 10),
-              modified: unescapeStr(matchPost[2]),
-              title: unescapeStr(matchPost[3]),
-              content: unescapeStr(matchPost[4])
-            });
+        if (json && json.posts && Array.isArray(json.posts) && json.posts.length > 0) {
+          const postIds = json.posts.join(',');
+          const v2Url = `https://public-api.wordpress.com/wp/v2/sites/${SITE.ID}/posts?include=${postIds}&orderby=include&_fields=id,title,content,modified`;
+          const v2Res = await fetch(v2Url, { cache: 'no-store' });
+          if (!v2Res.ok) throw new Error("Failed to fetch popular posts details");
+          const v2Data = await v2Res.json();
+          if (Array.isArray(v2Data)) {
+            return v2Data.map(mapWpPostToSeries);
           }
-          return posts.map(mapWpPostToSeries);
         }
+      } catch (err) {
+        console.error("Failed to parse or fetch popular series details", err);
       }
     }
     return [];
